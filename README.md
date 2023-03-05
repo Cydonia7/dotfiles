@@ -17,6 +17,14 @@ data:
     font: "Jetbrains Mono"
 ```
 
+## Enable private features
+
+To enable private features and fetch the repositories that contain them, edit the file mentioned above and use:
+
+`chezmoi apply -R`
+
+The `-R` flag is needed to refresh repositories.
+
 ## Configure the repository with push remote
 
 ```bash

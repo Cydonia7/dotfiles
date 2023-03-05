@@ -4,3 +4,11 @@
   refreshPeriod: "24h"
   clone:
     args: ["--depth", "1"]
+
+{{ if .features.quotatis }}
+".quotatis":
+  type: "git-repo"
+  url: "git@github.com:Cydonia7/dotfiles-quotatis.git"
+  refreshPeriod: "24h"
+{{ end }}
+

@@ -1,3 +1,6 @@
 alacritty:
   font: "Fantasque Sans Mono Nerd Font"
 
+features:
+  quotatis: false
+
