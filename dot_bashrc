@@ -1,2 +1,6 @@
-[[ -f "$HOME/.bashrc_local" ]] && source "$HOME/.bashrc_local"
+for file in $HOME/.bash.d/*; do
+    source "$file"
+done
+
+[[ -f "$HOME/.bashrc.local" ]] && source "$HOME/.bashrc.local"
 
