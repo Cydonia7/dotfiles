@@ -10,11 +10,11 @@ window:
 # Fonts I like: Cascadia Code, Fantasque Sans Mono, Jetbrains Mono, SF Mono, Inconsolata
 font:
   normal:
-    family: &font "Fantasque Sans Mono Nerd Font"
+    family: "{{ .alacritty.font }}"
     style: Bold
 
   bold:
-    family: *font
+    family: "{{ .alacritty.font }}"
     style: Bold
 
   size: 12.0
