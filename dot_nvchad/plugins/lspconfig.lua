@@ -3,7 +3,7 @@ local capabilities = require("plugins.configs.lspconfig").capabilities
 
 local lspconfig = require "lspconfig"
 
-local servers = { "gopls" }
+local servers = { "gopls", "phpactor" }
 
 for _, lsp in ipairs(servers) do
   lspconfig[lsp].setup {
@@ -11,12 +11,4 @@ for _, lsp in ipairs(servers) do
     capabilities = capabilities,
   }
 end
-
-lspconfig["intelephense"].setup {
-  on_attach = on_attach,
-  capabilities = capabilities,
-  init_options = {
-    globalStoragePath = os.getenv('HOME') .. '/.local/share/intelephense'
-  }
-}
 
