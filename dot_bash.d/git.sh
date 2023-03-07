@@ -31,6 +31,7 @@ alias gplo="git pull origin"
 alias gps="git push"
 alias gpso="git push origin"
 alias gb="git branch"
+alias gbd="git branch -D"
 alias gc="git checkout"
 alias gnb="git checkout -b"
 alias gcm="git commit -m"
@@ -38,4 +39,5 @@ alias gra="gr ."
 alias gsh="git show"
 alias gl="git log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit"
 alias gcl="git clean -fdx && git status"
+alias gad='LC_ALL=C GIT_COMMITTER_DATE="$(date)" git commit --amend --no-edit --date "$(date)"'
 
