@@ -43,6 +43,7 @@ alias gcan="git commit --amend --no-edit"
 alias gra="gr ."
 alias grb="git rebase"
 alias gsh="git show"
+alias gshh="git show HEAD"
 alias gl="git log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit"
 alias gcl="git clean -fdx && git status"
 alias gad='LC_ALL=C GIT_COMMITTER_DATE="$(date)" git commit --amend --no-edit --date "$(date)"'
