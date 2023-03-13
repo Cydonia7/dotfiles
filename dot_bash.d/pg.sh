@@ -7,6 +7,13 @@ select_database() {
     echo $selected_db
 }
 
+compute_pg_dsn() {
+    username=$1
+    server_version=$(psql -U postgres -c "SHOW server_version" | tail +3 | head -n1 | xargs)
+
+    echo "pgsql://$username:$username@localhost:5432/$username?serverVersion=$server_version"
+}
+
 create_pg_db() {
     if [ -z "$1" ]; then
       read -p "Enter the new database name: " username
@@ -20,9 +27,21 @@ create_pg_db() {
     handle_result "Database $username created" "Could not create database $username"
     psql -U postgres -c "GRANT ALL PRIVILEGES ON SCHEMA public TO $username" >/dev/null 2>$TMP_ERROR_FILE
     handle_result "Privileges granted to $username" "Could not grant privileges to $username"
-    server_version=$(psql -U postgres -c "SHOW server_version" | tail +3 | head -n1 | xargs)
-    dsn="pgsql://$username:$username@localhost:5432/$username?serverVersion=$server_version"
-    log INFO "You can now use the following DSN to connect from Symfony apps:\n$dsn"
+    log INFO "You can now use the following DSN to connect from Symfony apps:\n$(compute_pg_dsn $username)"
+}
+
+info_pg_db() {
+    # Get the username from argument or prompt
+    if [ -z "$1" ]; then
+        username=$(select_database)
+        if [ $? -ne 0 ]; then
+            return
+        fi
+    else
+      username="$1"
+    fi
+
+    log INFO "DSN : $(compute_pg_dsn $username)"
 }
 
 drop_pg_db() {
@@ -68,12 +87,14 @@ pg() {
     declare -A subcommands=(
         [create]=create_pg_db
         [drop]=drop_pg_db
+        [info]=info_pg_db
         [reset]=reset_pg_db
     )
 
     declare -A usages=(
         [create]="pg create [name]"
         [drop]="pg drop [name]"
+        [info]="pg info [name]"
         [reset]="pg reset [name]"
     )
 
