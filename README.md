@@ -19,11 +19,11 @@ data:
 
 ## Enable private features
 
-To enable private features and fetch the repositories that contain them, edit the file mentioned above and use:
+To enable private features and fetch the repositories that contain them, edit the file mentioned above with a `features` key inside `data` and use:
 
 `chezmoi apply -R`
 
-The `-R` flag is needed to refresh repositories.
+The `-R` flag is needed to force refresh repositories.
 
 ## Configure the repository with push remote
 
