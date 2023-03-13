@@ -19,7 +19,7 @@ data:
 
 ## Enable private features
 
-To enable private features and fetch the repositories that contain them, edit the file mentioned above with a `features` key inside `data` and use:
+To enable private features and fetch the repositories that contain them, edit the file mentioned above and use:
 
 `chezmoi apply -R`
 
