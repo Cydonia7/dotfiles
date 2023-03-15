@@ -7,14 +7,18 @@ NC='\033[0m'
 
 TMP_ERROR_FILE=/tmp/$$.error
 
+abort() {
+    log "ERROR" "$1. Aborting..."
+    if [ -f $TMP_ERROR_FILE ]; then
+        cat $TMP_ERROR_FILE
+        rm -f $TMP_ERROR_FILE
+    fi
+    kill -INT $$
+}
+
 handle_error() {
     if [ $? -ne 0 ]; then
-        log "ERROR" "$1. Aborting..."
-        if [ -f $TMP_ERROR_FILE ]; then
-            cat $TMP_ERROR_FILE
-            rm -f $TMP_ERROR_FILE
-        fi
-        kill -INT $$
+        abort "$1"
     else
         rm -f $TMP_ERROR_FILE
     fi
