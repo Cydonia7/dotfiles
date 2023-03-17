@@ -1,5 +1,7 @@
 alias c="chezmoi"
 alias cc="chezmoi cd"
+alias cu="chezmoi update"
+alias cad="chezmoi add"
 alias ca="chezmoi apply && source $HOME/.bashrc"
 alias car="chezmoi apply -R && source $HOME/.bashrc"
 
