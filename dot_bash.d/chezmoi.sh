@@ -17,3 +17,8 @@ ce()
   source $HOME/.bashrc
 }
 
+cea()
+{
+  ce $1 && ca
+}
+
