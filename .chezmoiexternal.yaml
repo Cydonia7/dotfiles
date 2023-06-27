@@ -12,3 +12,10 @@
   refreshPeriod: "24h"
 {{ end }}
 
+{{ if .features.cmi }}
+".cmi":
+  type: "git-repo"
+  url: "git@github.com:Cydonia7/dotfiles-cmi.git"
+  refreshPeriod: "24h"
+{{ end }}
+
