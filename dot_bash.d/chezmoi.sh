@@ -4,6 +4,7 @@ alias cu="chezmoi update"
 alias cad="chezmoi add"
 alias ca="chezmoi apply && source $HOME/.bashrc"
 alias car="chezmoi apply -R && source $HOME/.bashrc"
+alias cv="nvim $HOME/.config/chezmoi/chezmoi.yaml && chezmoi apply -R"
 
 ce()
 {
