@@ -3,5 +3,6 @@ alacritty:
   font_size: "12.0"
 
 features:
+  cmi: false
   quotatis: false
 
