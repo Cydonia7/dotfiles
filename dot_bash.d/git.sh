@@ -17,6 +17,37 @@ ga() {
   git add "$@" && git status
 }
 
+gc() {
+  if [[ -z "$1" ]]; then
+    git branch | grep -v "^\*" | fzf --height=20% --reverse --info=inline | xargs git checkout
+  else
+    git checkout "$@"
+  fi
+}
+
+gcr() {
+  if [[ -z "$1" ]]; then
+    git fetch --all && git branch -r | grep -v "HEAD" | fzf --height=50% --reverse --info=inline | sed 's/origin\///' | xargs git checkout
+  else
+    git checkout "$@"
+  fi
+}
+
+gbd() {
+  if [[ -z "$1" ]]; then
+    git branch | grep -v "^\*" | fzf --height=50% --reverse --info=inline | xargs git branch -D
+  else
+    git branch -D "$@"
+  fi
+}
+
+# Git erase current
+gec() {
+  local CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+  git checkout main
+  git branch -D ${CURRENT_BRANCH}
+}
+
 alias g="git"
 alias ghc="git_clone github.com"
 alias glc="git_clone gitlab.com"
@@ -35,8 +66,6 @@ alias gps="git push"
 alias gpso="git push origin"
 alias gb="git branch"
 alias gba="git branch -a"
-alias gbd="git branch -D"
-alias gc="git checkout"
 alias gnb="git checkout -b"
 alias gcm="git commit -m"
 alias gca="git commit --amend"
