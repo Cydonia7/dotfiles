@@ -56,8 +56,8 @@ alias gap="git add -N . && git add -p && git status"
 alias gam="git add -u && git status"
 alias gaa="git add -A && git status"
 alias gf="git fetch"
-alias gfo="git fetch origin"
-alias gfa="git fetch --all"
+alias gfo="git fetch origin --prune"
+alias gfa="git fetch --all --prune"
 alias gd="git diff"
 alias gdc="git diff --cached"
 alias gpl="git pull"
@@ -77,6 +77,7 @@ alias gshh="git show HEAD"
 alias gl="git log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit"
 alias gcl="git clean -fdx && git status"
 alias gad='LC_ALL=C GIT_COMMITTER_DATE="$(date)" git commit --amend --no-edit --date "$(date)"'
+alias gsp='git standup'
 
 function gclo() {
   if [[ -z $1 ]]; then
