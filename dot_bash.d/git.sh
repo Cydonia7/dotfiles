@@ -27,7 +27,7 @@ gc() {
 
 gcr() {
   if [[ -z "$1" ]]; then
-    git fetch --all && git branch -r | grep -v "HEAD" | fzf --height=50% --reverse --info=inline | sed 's/origin\///' | xargs git checkout
+    git fetch --all --prune && git branch -r | grep -v "HEAD" | fzf --height=50% --reverse --info=inline | sed 's/origin\///' | xargs git checkout
   else
     git checkout "$@"
   fi
