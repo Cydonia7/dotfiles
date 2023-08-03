@@ -43,9 +43,10 @@ gbd() {
 
 # Git erase current
 gec() {
-  local CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-  git checkout main
-  git branch -D ${CURRENT_BRANCH}
+  local current_branch=$(git rev-parse --abbrev-ref HEAD)
+  local default_branch=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
+  git checkout ${default_branch}
+  git branch -D ${current_branch}
 }
 
 alias g="git"
