@@ -33,14 +33,14 @@ document_aliases_and_functions() {
                 alias_name=$(echo $line | awk -F'=' '{print $1}' | sed 's/alias //')
                 alias_comment=$(echo $line | awk -F'#' '{if($2) print $2}')
 
-                printf " • \e[32m%-20s\e[0m %s\n" "$alias_name" "$alias_comment"
+                printf " • \e[32m%-21s\e[0m %s\n" "$alias_name" "$alias_comment"
             elif [[ $line =~ ^[[:space:]]*function ]] || ([[ $line =~ ^[[:alnum:]_]+\(\) ]] && [[ $prev_line != 'private' ]]); then
                 if [[ $line =~ ^[[:space:]]*function ]]; then
                     func_name=$(echo $line | awk '{print $2}' | awk -F'(' '{print $1}')
                 else
                     func_name=$(echo $line | awk -F'(' '{print $1}')
                 fi
-                printf " • \e[32m%-20s\e[0m %s\n" "$func_name" "$prev_line"
+                printf " • \e[32m%-21s\e[0m %s\n" "$func_name" "$prev_line"
             fi
             prev_line=$(echo $line | awk -F'#' '{if($2) print $2}')
         done < "$file"
