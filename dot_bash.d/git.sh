@@ -10,7 +10,7 @@ git_clone() {
   cd $PROJECT
 }
 
-## Clone
+## Fetch data from server
 alias ghc="git_clone github.com" # Clone from Github
 alias glc="git_clone gitlab.com" # Clone from Gitlab
 
@@ -74,6 +74,12 @@ function gclo() {
   done < $remembered_file
 }
 
+alias gf="git fetch --prune" # Fetch from the server
+alias gfo="git fetch origin --prune" # Fetch origin
+alias gfa="git fetch --all --prune" # Fetch all remotes
+alias gpl="git pull" # Pull
+alias gplo="git pull origin" # Pull from origin
+
 ## Other operations
 
 gr() {
@@ -121,13 +127,8 @@ alias gs="git status"
 alias gap="git add -N . && git add -p && git status"
 alias gam="git add -u && git status"
 alias gaa="git add -A && git status"
-alias gf="git fetch"
-alias gfo="git fetch origin --prune"
-alias gfa="git fetch --all --prune"
 alias gd="git diff"
 alias gdc="git diff --cached"
-alias gpl="git pull"
-alias gplo="git pull origin"
 alias gps="git push"
 alias gpso="git push origin"
 alias gpsof="git push origin --force-with-lease"
