@@ -1,11 +1,12 @@
-alias c="chezmoi"
-alias cc="chezmoi cd"
-alias cu="chezmoi update"
-alias cad="chezmoi add"
-alias ca="chezmoi apply && source $HOME/.bashrc"
-alias car="chezmoi apply -R && source $HOME/.bashrc"
-alias cv="nvim $HOME/.config/chezmoi/chezmoi.yaml && chezmoi apply -R"
+alias c="chezmoi" # Alias for chezmoi
+alias cc="chezmoi cd" # Go into chezmoi's directory
+alias cu="chezmoi update && source $HOME/.bashrc" # Pull changes from the repository, apply and reload
+alias cad="chezmoi add && source $HOME/.bashrc" # Add file to chezmoi
+alias ca="chezmoi apply && source $HOME/.bashrc" # Apply changes and reload bashrc
+alias car="chezmoi apply -R && source $HOME/.bashrc" # Fetch repositories, apply changes and reload bashrc
+alias cv="nvim $HOME/.config/chezmoi/chezmoi.yaml && chezmoi apply -R && source $HOME/.bashrc" # Edit variables, apply and reload
 
+# Edit source file
 ce()
 {
   if [ $# -eq 0 ]; then
@@ -18,6 +19,7 @@ ce()
   source $HOME/.bashrc
 }
 
+# Edit source file then apply and reload bashrc
 cea()
 {
   ce $1 && ca
