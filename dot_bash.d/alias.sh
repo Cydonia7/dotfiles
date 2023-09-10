@@ -21,6 +21,11 @@ document_aliases_and_functions() {
 
     for file in $files; do
         filename=$(basename "$file")
+
+        if [[ "$filename" == "0_framework.sh" ]]; then
+            continue
+        fi
+
         padding_length=$((24-${#filename}))
         padding=$(printf "%0.s " $(seq 1 $padding_length))
 
