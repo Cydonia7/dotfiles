@@ -1,5 +1,6 @@
 #!/bin/bash
 
+#private
 document_aliases_and_functions() {
     if [[ -z "$1" ]]
     then
@@ -13,22 +14,27 @@ document_aliases_and_functions() {
     # List all files in the directory
     files=$(find "$directory" -type f)
 
+    if [[ ! -z "$2" ]]; then
+        # Filtering files if a second argument is provided
+        files=$(echo "$files" | grep "$2")
+    fi
+
     for file in $files; do
         filename=$(basename "$file")
         padding_length=$((24-${#filename}))
         padding=$(printf "%0.s " $(seq 1 $padding_length))
 
-        echo -e "\e[38;5;189\e[48;5;63m $filename \e[0m"
+        echo -e "\e[38;5;189m\e[48;5;63m $filename$padding\e[0m"
 
         # Extract and print aliases and functions
         local prev_line=''
         while IFS= read -r line; do
-            if [[ $line =~ ^[[:space:]]*alias ]]; then
+            if [[ $line =~ ^[[:space:]]*alias[[:space:]] ]]; then
                 alias_name=$(echo $line | awk -F'=' '{print $1}' | sed 's/alias //')
                 alias_comment=$(echo $line | awk -F'#' '{if($2) print $2}')
 
                 printf " • \e[32m%-20s\e[0m %s\n" "$alias_name" "$alias_comment"
-            elif [[ $line =~ ^[[:space:]]*function ]] || [[ $line =~ ^[[:alnum:]_]+\(\) ]]; then
+            elif [[ $line =~ ^[[:space:]]*function ]] || ([[ $line =~ ^[[:alnum:]_]+\(\) ]] && [[ $prev_line != 'private' ]]); then
                 if [[ $line =~ ^[[:space:]]*function ]]; then
                     func_name=$(echo $line | awk '{print $2}' | awk -F'(' '{print $1}')
                 else
