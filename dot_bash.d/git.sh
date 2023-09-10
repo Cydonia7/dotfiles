@@ -10,6 +10,8 @@ git_clone() {
   cd $PROJECT
 }
 
+alias g="git" # Alias for git
+
 ## Fetch data from server
 alias ghc="git_clone github.com" # Clone from Github
 alias glc="git_clone gitlab.com" # Clone from Gitlab
@@ -80,24 +82,7 @@ alias gfa="git fetch --all --prune" # Fetch all remotes
 alias gpl="git pull" # Pull
 alias gplo="git pull origin" # Pull from origin
 
-## Other operations
-
-gr() {
-  git restore --staged "$@" && git status
-}
-
-ga() {
-  git add "$@" && git status
-}
-
-gc() {
-  if [[ -z "$1" ]]; then
-    git branch | grep -v "^\*" | fzf --height=20% --reverse --info=inline | xargs git checkout
-  else
-    git checkout "$@"
-  fi
-}
-
+# Checkout remote branch
 gcr() {
   if [[ -z "$1" ]]; then
     git fetch origin --prune && git branch -r | grep -v "HEAD" | grep origin/ | fzf --height=50% --reverse --info=inline | sed 's/origin\///' | xargs git checkout
@@ -106,13 +91,57 @@ gcr() {
   fi
 }
 
-gbd() {
+## Push work to the server
+
+# Add files to staging area
+ga() {
+  git add "$@" && git status
+}
+
+alias gap="git add -N . && git add -p && git status" # Add patches
+alias gam="git add -u && git status" # Add modified files
+alias gaa="git add -A && git status" # Add everything
+alias gcl="git clean -fdx && git status" # Clean the working dir
+
+alias gra="gr ." # Restore everything
+
+# Restore specific files
+gr() {
+  git restore --staged "$@" && git status
+}
+
+alias gcm="git commit -m" # Commit
+alias gca="git commit --amend" # Amend previous commit
+alias gcan="git commit --amend --no-edit" # Amend previous commit without editing
+alias gad='LC_ALL=C GIT_COMMITTER_DATE="$(date)" git commit --amend --no-edit --date "$(date)"' # Amend previous commit date
+alias gps="git push" # Push changes
+alias gpso="git push origin" # Push to origin
+alias gpsof="git push origin --force-with-lease" # Push to origin, force with lease
+
+## Inspect repository
+
+alias gs="git status" # Show status
+alias gd="git diff" # Show diff
+alias gdc="git diff --cached" # Show cached diff
+alias gsh="git show" # Show commit
+alias gshh="git show HEAD" # Show HEAD
+alias gl="git log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit" # Shows history
+alias gsp='git standup' # Shows my recent commits
+
+## Branch operations
+
+# Checkout branch
+gc() {
   if [[ -z "$1" ]]; then
-    git branch | grep -v "^\*" | fzf --height=50% --reverse --info=inline | xargs git branch -D
+    git branch | grep -v "^\*" | fzf --height=20% --reverse --info=inline | xargs git checkout
   else
-    git branch -D "$@"
+    git checkout "$@"
   fi
 }
+
+alias gb="git branch" # List branches
+alias gba="git branch -a" # List all branches
+alias gnb="git checkout -b" # Checkout new branch
 
 # Erase current branch
 gec() {
@@ -122,29 +151,16 @@ gec() {
   git branch -D ${current_branch}
 }
 
-alias g="git"
-alias gs="git status"
-alias gap="git add -N . && git add -p && git status"
-alias gam="git add -u && git status"
-alias gaa="git add -A && git status"
-alias gd="git diff"
-alias gdc="git diff --cached"
-alias gps="git push"
-alias gpso="git push origin"
-alias gpsof="git push origin --force-with-lease"
-alias gb="git branch"
-alias gba="git branch -a"
-alias gnb="git checkout -b"
-alias gcm="git commit -m"
-alias gca="git commit --amend"
-alias gcan="git commit --amend --no-edit"
-alias gra="gr ."
-alias grb="git rebase"
-alias grbc="git rebase --continue"
-alias gsh="git show"
-alias gshh="git show HEAD"
-alias gl="git log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit"
-alias gcl="git clean -fdx && git status"
-alias gad='LC_ALL=C GIT_COMMITTER_DATE="$(date)" git commit --amend --no-edit --date "$(date)"'
-alias gsp='git standup'
+# Delete a branch
+gbd() {
+  if [[ -z "$1" ]]; then
+    git branch | grep -v "^\*" | fzf --height=50% --reverse --info=inline | xargs git branch -D
+  else
+    git branch -D "$@"
+  fi
+}
+
+alias grb="git rebase" # Rebase onto branch
+alias grbc="git rebase --continue" # Continue rebase
+alias grba="git rebase --abort" # Abort rebase
 
