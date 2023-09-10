@@ -1,2 +1,1 @@
-alias n="nvim"
-alias v="nvim"
+alias v="nvim" # Alias for Vim

@@ -1,5 +1,6 @@
 #!/bin/bash
 
+#private
 select_database() {
     databases=$(psql -U postgres -c "SELECT datname FROM pg_database WHERE datistemplate = false AND datname != 'postgres'" -t)
     selected_db=$(echo "$databases" | fzf --height 40% --reverse --border --prompt="Select the database you want to $1: ")
@@ -7,6 +8,7 @@ select_database() {
     echo $selected_db
 }
 
+#private
 compute_pg_dsn() {
     username=$1
     server_version=$(psql -U postgres -c "SHOW server_version" | tail +3 | head -n1 | xargs)
@@ -14,6 +16,7 @@ compute_pg_dsn() {
     echo "pgsql://$username:$username@localhost:5432/$username?serverVersion=$server_version"
 }
 
+#private
 create_pg_db() {
     if [ -z "$1" ]; then
       read -p "Enter the new database name: " username
@@ -30,6 +33,7 @@ create_pg_db() {
     log INFO "You can now use the following DSN to connect from Symfony apps:\n$(compute_pg_dsn $username)"
 }
 
+#private
 info_pg_db() {
     # Get the username from argument or prompt
     if [ -z "$1" ]; then
@@ -44,6 +48,7 @@ info_pg_db() {
     log INFO "DSN : $(compute_pg_dsn $username)"
 }
 
+#private
 drop_pg_db() {
     # Get the username from argument or prompt
     if [ -z "$1" ]; then
@@ -65,6 +70,7 @@ drop_pg_db() {
     handle_result "User $username dropped" "Could not drop user $username"
 }
 
+#private
 reset_pg_db() {
     # Get the username from argument or prompt
     if [ -z "$1" ]; then
@@ -80,6 +86,7 @@ reset_pg_db() {
     create_pg_db $username
 }
 
+# Manage local PostgreSQL databases
 pg() {
     local subcommand="$1"
     shift
