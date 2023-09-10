@@ -6,7 +6,7 @@ alias ca="chezmoi apply && source $HOME/.bashrc" # Apply changes and reload bash
 alias car="chezmoi apply -R && source $HOME/.bashrc" # Fetch repositories, apply changes and reload bashrc
 alias cv="nvim $HOME/.config/chezmoi/chezmoi.yaml && chezmoi apply -R && source $HOME/.bashrc" # Edit variables, apply and reload
 
-# Edit source file
+# Edit source file, apply and reload
 ce()
 {
   if [ $# -eq 0 ]; then
@@ -17,11 +17,6 @@ ce()
   handle_error "No file selected"
   chezmoi edit $file -a
   source $HOME/.bashrc
-}
-
-# Edit source file then apply and reload bashrc
-cea()
-{
-  ce $1 && ca
+  ca
 }
 
