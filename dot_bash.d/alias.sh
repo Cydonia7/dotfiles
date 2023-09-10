@@ -29,12 +29,15 @@ document_aliases_and_functions() {
         padding_length=$((24-${#filename}))
         padding=$(printf "%0.s " $(seq 1 $padding_length))
 
-        echo -e "\e[38;5;189m\e[48;5;63m $filename$padding\e[0m"
+        echo -e "\e[38;5;189;48;5;63m $filename$padding\e[0m"
 
         # Extract and print aliases and functions
         local prev_line=''
         while IFS= read -r line; do
-            if [[ $line =~ ^[[:space:]]*alias[[:space:]] ]]; then
+            if [[ $line =~ ^##[[:space:]] ]]; then
+                echo -e "\e[38;5;38m →${line:2} \e[0m"
+                continue
+            elif [[ $line =~ ^[[:space:]]*alias[[:space:]] ]]; then
                 alias_name=$(echo $line | awk -F'=' '{print $1}' | sed 's/alias //')
                 alias_comment=$(echo $line | awk -F'#' '{if($2) print $2}')
 
