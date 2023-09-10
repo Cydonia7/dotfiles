@@ -1,7 +1,7 @@
 alias c="chezmoi" # Alias for chezmoi
 alias cc="chezmoi cd" # Go into chezmoi's directory
 alias cu="chezmoi update && source $HOME/.bashrc" # Pull changes from the repository, apply and reload
-alias cad="chezmoi add && source $HOME/.bashrc" # Add file to chezmoi
+alias cad="chezmoi add" # Add file to chezmoi
 alias ca="chezmoi apply && source $HOME/.bashrc" # Apply changes and reload bashrc
 alias car="chezmoi apply -R && source $HOME/.bashrc" # Fetch repositories, apply changes and reload bashrc
 alias cv="nvim $HOME/.config/chezmoi/chezmoi.yaml && chezmoi apply -R && source $HOME/.bashrc" # Edit variables, apply and reload
