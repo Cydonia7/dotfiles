@@ -8,6 +8,9 @@ document_aliases_and_functions() {
         return 1
     fi
 
+    cache_dir="$HOME/.dh_cache"
+    mkdir -p "$cache_dir"
+
     # Make sure directory ends with '/'
     directory="${1%/}/"
 
@@ -29,31 +32,38 @@ document_aliases_and_functions() {
         padding_length=$((24-${#filename}))
         padding=$(printf "%0.s " $(seq 1 $padding_length))
 
-        echo -e "\e[38;5;189;48;5;63m $filename$padding\e[0m"
+        cache_file="$cache_dir/$filename.cache"
 
-        # Extract and print aliases and functions
-        local prev_line=''
-        while IFS= read -r line; do
-            if [[ $line =~ ^##[[:space:]] ]]; then
-                echo -e "\e[38;5;38m →${line:2} \e[0m"
-                continue
-            elif [[ $line =~ ^[[:space:]]*alias[[:space:]] ]]; then
-                alias_name=$(echo $line | awk -F'=' '{print $1}' | sed 's/alias //')
-                alias_comment=$(echo $line | awk -F'#' '{if($2) print $2}')
+        if [[ -f "$cache_file" ]] && [[ "$cache_file" -nt "$file" ]]; then
+            cat "$cache_file"
+        else
+        {
+            # Extract and print aliases and functions
+            echo -e "\e[38;5;189;48;5;63m $filename$padding\e[0m"
+            local prev_line=''
+            while IFS= read -r line; do
+                if [[ $line =~ ^##[[:space:]] ]]; then
+                    echo -e "\e[38;5;38m →${line:2} \e[0m"
+                    continue
+                elif [[ $line =~ ^[[:space:]]*alias[[:space:]] ]]; then
+                    alias_name=$(echo $line | awk -F'=' '{print $1}' | sed 's/alias //')
+                    alias_comment=$(echo $line | awk -F'#' '{if($2) print $2}')
 
-                printf " • \e[32m%-21s\e[0m %s\n" "$alias_name" "$alias_comment"
-            elif [[ $line =~ ^[[:space:]]*function ]] || ([[ $line =~ ^[[:alnum:]_]+\(\) ]] && [[ $prev_line != 'private' ]]); then
-                if [[ $line =~ ^[[:space:]]*function ]]; then
-                    func_name=$(echo $line | awk '{print $2}' | awk -F'(' '{print $1}')
-                else
-                    func_name=$(echo $line | awk -F'(' '{print $1}')
+                    printf " • \e[32m%-21s\e[0m %s\n" "$alias_name" "$alias_comment"
+                elif [[ $line =~ ^[[:space:]]*function ]] || ([[ $line =~ ^[[:alnum:]_]+\(\) ]] && [[ $prev_line != 'private' ]]); then
+                    if [[ $line =~ ^[[:space:]]*function ]]; then
+                        func_name=$(echo $line | awk '{print $2}' | awk -F'(' '{print $1}')
+                    else
+                        func_name=$(echo $line | awk -F'(' '{print $1}')
+                    fi
+                    printf " • \e[32m%-21s\e[0m %s\n" "$func_name" "$prev_line"
                 fi
-                printf " • \e[32m%-21s\e[0m %s\n" "$func_name" "$prev_line"
-            fi
-            prev_line=$(echo $line | awk -F'#' '{if($2) print $2}')
-        done < "$file"
+                prev_line=$(echo $line | awk -F'#' '{if($2) print $2}')
+            done < "$file"
 
-        echo ""
+            echo ""
+        } | tee "$cache_file"
+        fi
     done
 }
 
