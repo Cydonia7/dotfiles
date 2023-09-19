@@ -110,6 +110,8 @@ gr() {
   git restore --staged "$@" && git status
 }
 
+alias gst="git stash" # Stash changes
+alias gstp="git stash pop" # Pop stash changes
 alias gcm="git commit -m" # Commit
 alias gca="git commit --amend" # Amend previous commit
 alias gcan="git commit --amend --no-edit" # Amend previous commit without editing
