@@ -6,3 +6,5 @@ alias ci="composer install" # Install composer packages
 alias su="symfony server:start -d" # Start symfony server
 alias sd="symfony server:stop" # Stop symfony server
 
+alias pw="phpunit-watcher watch" # Run PHPunit watcher
+
