@@ -29,4 +29,9 @@ _ldr_completion() {
 }
 
 complete -F _ldr_completion ldr
+complete -F _ldr_completion ldra
+complete -F _ldr_completion ldrp
+complete -F _ldr_completion ldrpp
+complete -F _ldr_completion ldrs
+complete -F _ldr_completion ldrd
 
