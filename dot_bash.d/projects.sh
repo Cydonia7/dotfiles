@@ -4,7 +4,7 @@ alias zld="cd /home/cydo/Projects/hiway/lycra/infrastructure/deploy"
 
 # Lycra deploy run
 ldr() {
-  (zld; $@)
+  (zld; ./$@)
 }
 
 alias ldra="APP_CONTEXT=all ldr"
