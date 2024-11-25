@@ -68,3 +68,5 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     log::debug "Debug message after setting log level manually"
 fi
 
+set +euo pipefail
+
