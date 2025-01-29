@@ -29,7 +29,7 @@ exec --no-startup-id numlockx
 # If inside VMWare, then enable copy-paste
 {{ output "bash" "-c" "if lspci | grep VMware > /dev/null; then echo exec --no-startup-id vmware-user; fi" }}
 
-exec_always --no-startup-id feh --bg-scale {{ .chezmoi.homeDir }}/Images/background.jpg
+exec_always --no-startup-id feh --bg-scale {{ .chezmoi.homeDir }}/Images/background.png
 exec_always --no-startup-id killall picom; picom --focus-exclude "name *= 'i3lock'|| _NET_WM_STATE@[0]:32a = '_NET_WM_STATE_FULLSCREEN'" --fade-exclude "name = 'rofi'"
 exec_always --no-startup-id killall -q polybar; while pgrep -u $UID -x polybar >/dev/null; do sleep 1; done; for m in $(polybar --list-monitors | cut -d":" -f1); do MONITOR=$m polybar --reload main & done
 exec_always --no-startup-id killall dunst; dunst
@@ -46,6 +46,8 @@ floating_modifier $mod
 
 # start a terminal
 bindsym $mod+Return exec kitty
+
+bindsym $mod+c exec firefox
 
 # kill focused window
 bindsym $mod+Shift+A kill
@@ -120,6 +122,17 @@ set $ws7 "7"
 set $ws8 "8"
 set $ws9 "9"
 set $ws10 "10"
+
+workspace $ws1 output DP-2
+workspace $ws2 output DP-4
+workspace $ws3 output DP-2
+workspace $ws4 output DP-4
+workspace $ws5 output DP-2
+workspace $ws6 output DP-4
+workspace $ws7 output DP-2
+workspace $ws8 output DP-4
+workspace $ws9 output DP-2
+workspace $ws10 output DP-4
 
 # switch to workspace
 bindsym $mod+ampersand workspace number $ws1

@@ -33,8 +33,9 @@ label = %time%
 type = internal/i3
 
 format-margin = 2px
-label-unfocused-foreground = #888
-label-unfocused-padding = 1
-label-focused-foreground = #333
-label-focused-padding = 1
+label-unfocused-foreground = #888888
+label-focused-foreground = #333333
+
+index-sort = true
+pin-workspaces = true
 
