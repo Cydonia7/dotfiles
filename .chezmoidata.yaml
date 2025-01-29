@@ -1,7 +1,3 @@
-alacritty:
-  font: "Fantasque Sans Mono Nerd Font"
-  font_size: "12.0"
-
 features:
   cmi: false
   quotatis: false
