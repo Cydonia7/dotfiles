@@ -13,8 +13,8 @@ Default values for variables can be found in `.chezmoidata.yaml`. Any variable c
 
 ```yaml
 data:
-  alacritty:
-    font: "Jetbrains Mono"
+  features:
+    quotatis: true
 ```
 
 ## Enable private features
