@@ -1,0 +1,40 @@
+[bar/main]
+monitor = ${env:MONITOR}
+
+background = "#77ffffff"
+foreground = "#333"
+
+height = 30
+
+scroll-up = i3-msg workspace next_on_output
+scroll-down = i3-msg workspace prev_on_output
+
+font-0 = "Inter Variable:style=Medium:pixelsize=12;3"
+; Use nerd font for icons
+font-1 = "JetBrainsMono NFM:style=Regular:pixelsize=12;3"
+
+modules-left = i3
+modules-right = date
+
+[module/date]
+type = internal/date
+
+interval = 1.0
+time = "%H:%M"
+
+format = <label>
+format-prefix = 
+format-prefix-padding = 2
+format-margin = 3px
+
+label = %time%
+
+[module/i3]
+type = internal/i3
+
+format-margin = 2px
+label-unfocused-foreground = #888
+label-unfocused-padding = 1
+label-focused-foreground = #333
+label-focused-padding = 1
+
