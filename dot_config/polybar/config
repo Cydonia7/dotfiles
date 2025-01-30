@@ -20,6 +20,7 @@ modules-right = date
 type = internal/date
 
 interval = 1.0
+date = %d/%m/%Y
 time = "%H:%M"
 
 format = <label>
@@ -27,7 +28,7 @@ format-prefix = 
 format-prefix-padding = 2
 format-margin = 3px
 
-label = %time%
+label = %date% %time%
 
 [module/i3]
 type = internal/i3
