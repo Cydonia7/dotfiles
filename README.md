@@ -6,6 +6,10 @@ Install with:
 
 `chezmoi init Cydonia7`
 
+Install the following packages:
+
+yay -S lightdm i3-wm i3lock neovim neovim-symlinks lightdm-gtk-greeter chezmoi kitty eza starship keychain zoxide dunst inter-font file-roller ttf-jetbrains-mono feh polybar
+
 ## Add machine-specific configuration
 
 Default values for variables can be found in `.chezmoidata.yaml`. Any variable can be customized in
