@@ -31,3 +31,13 @@ The `-R` flag is needed to force refresh repositories.
 chezmoi cd
 git remote set-url --push origin git@github.com:Cydonia7/dotfiles.git
 ```
+
+# Configure HiDPI if necessary
+
+```bash
+export GDK_SCALE=2
+gsettings set org.gnome.settings-daemon.plugins.xsettings overrides "[{'Gdk/WindowScalingFactor', <$GDK_SCALE>}]"
+gsettings set org.gnome.desktop.interface scaling-factor $GDK_SCALE
+gsettings set org.gnome.desktop.interface text-scaling-factor $GDK_SCALE
+echo Xft.dpi: 192 >> .Xresources
+```
