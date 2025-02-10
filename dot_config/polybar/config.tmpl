@@ -1,0 +1,59 @@
+[bar/main]
+{{- if .hidpi }}
+height = 44
+dpi = 160
+font-0 = "PP Neue Montreal:style=Medium:pixelsize=12;6"
+font-1 = "Symbols Nerd Font:style=Regular:pixelsize=12;5"
+{{ else }}
+height = 30
+font-0 = "Inter Variable:style=Medium:pixelsize=12;3"
+font-1 = "Symbols Nerd Font:style=Regular:pixelsize=12;3"
+{{ end }}
+monitor = ${env:MONITOR}
+
+radius = 10
+border-color = #00000000
+border-left-size = 15
+border-right-size = 15
+border-top-size = 15
+
+background = "#991e1e2e"
+foreground = "#cdd6f4"
+padding = 4
+
+scroll-up = i3-msg workspace next_on_output
+scroll-down = i3-msg workspace prev_on_output
+
+modules-left = i3
+modules-right = date
+
+[module/date]
+type = internal/date
+
+interval = 1.0
+date = %d/%m/%Y
+time = "%H:%M"
+
+format = <label>
+format-prefix = 
+format-prefix-padding = 2
+format-margin = 3px
+
+label = %date% %time%
+
+[module/i3]
+type = internal/i3
+
+ws-icon-0 = 1;
+ws-icon-1 = 2;
+ws-icon-2 = 3;
+ws-icon-default = 
+
+label-unfocused-foreground = #9399b2
+label-focused-foreground = #fab387
+label-separator = " "
+label-separator-padding = 2
+
+index-sort = true
+pin-workspaces = true
+
