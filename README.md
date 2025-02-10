@@ -32,7 +32,7 @@ chezmoi cd
 git remote set-url --push origin git@github.com:Cydonia7/dotfiles.git
 ```
 
-# Configure HiDPI if necessary
+## Configure HiDPI if necessary
 
 ```bash
 export GDK_SCALE=2
@@ -41,3 +41,10 @@ gsettings set org.gnome.desktop.interface scaling-factor $GDK_SCALE
 gsettings set org.gnome.desktop.interface text-scaling-factor $GDK_SCALE
 echo Xft.dpi: Xft.dpi: 150 >> .Xresources
 ```
+
+## Find a high-quality wallpaper
+
+Sources:
+- Reddit
+- Unsplash
+- Starkiteckt Designs
