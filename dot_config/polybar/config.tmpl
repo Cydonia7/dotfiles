@@ -1,20 +1,23 @@
 [bar/main]
 {{- if .hidpi }}
 height = 44
+radius = 10
 dpi = 160
+border-left-size = 15
+border-right-size = 15
 font-0 = "PP Neue Montreal:style=Medium:pixelsize=12;6"
 font-1 = "Symbols Nerd Font:style=Regular:pixelsize=12;5"
 {{ else }}
 height = 30
+radius = 5
+border-left-size = 10
+border-right-size = 10
 font-0 = "Inter Variable:style=Medium:pixelsize=12;3"
 font-1 = "Symbols Nerd Font:style=Regular:pixelsize=12;3"
 {{ end }}
 monitor = ${env:MONITOR}
 
-radius = 10
 border-color = #00000000
-border-left-size = 15
-border-right-size = 15
 border-top-size = 15
 
 background = "#991e1e2e"
