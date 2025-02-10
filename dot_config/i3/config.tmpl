@@ -26,6 +26,9 @@ exec --no-startup-id nm-applet
 # Have numlock on from the start
 exec --no-startup-id numlockx
 
+# Auto-switch to and from bluetooth headset
+exec python {{ .chezmoi.homeDir }}/.config/i3/bluetooth_audio_switcher.py
+
 # If inside VMWare, then enable copy-paste
 {{ output "bash" "-c" "if lspci | grep VMware > /dev/null; then echo exec --no-startup-id vmware-user; fi" }}
 
