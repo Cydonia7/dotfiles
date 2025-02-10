@@ -36,11 +36,15 @@ modules-right = {{ if .laptop }}battery {{ end }}date
 type = internal/battery
 
 format-discharging = <ramp-capacity>  <label-discharging>
-ramp-capacity-0 = 
-ramp-capacity-1 = 
+ramp-capacity-0 = %{F#f38ba8}
+ramp-capacity-1 = %{F#fab387}
 ramp-capacity-2 = 
 ramp-capacity-3 = 
 ramp-capacity-4 = 
+
+time-format = %H:%M
+label-discharging = %percentage%% (%time%)
+label-charging = %percentage%% (%time%)
 {{ end }}
 
 [module/date]
