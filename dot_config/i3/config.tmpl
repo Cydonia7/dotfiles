@@ -190,6 +190,7 @@ mode "(S)uspend, (L)ogout, (R)eboot, (P)oweroff" {
 bindsym $mod+p exec rofi -show p -modi p:$HOME/.config/rofi/rofi_power_menu
 
 for_window [class=".*"] title_format "   %title"
-for_window [class=".*"] border pixel 0
+for_window [class=".*"] border pixel 1
+client.focused #ff0000 #285577 #ffffff #2e9ef4 #fab38755
 gaps inner 10
 
