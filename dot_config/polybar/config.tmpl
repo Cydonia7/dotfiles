@@ -23,12 +23,25 @@ border-top-size = 15
 background = "#991e1e2e"
 foreground = "#cdd6f4"
 padding = 4
+module-margin = 2
 
 scroll-up = i3-msg workspace next_on_output
 scroll-down = i3-msg workspace prev_on_output
 
 modules-left = i3
-modules-right = date
+modules-right = {{ if .laptop }}battery {{ end }}date
+
+{{ if .laptop }}
+[module/battery]
+type = internal/battery
+
+format-discharging = <ramp-capacity>  <label-discharging>
+ramp-capacity-0 = 
+ramp-capacity-1 = 
+ramp-capacity-2 = 
+ramp-capacity-3 = 
+ramp-capacity-4 = 
+{{ end }}
 
 [module/date]
 type = internal/date

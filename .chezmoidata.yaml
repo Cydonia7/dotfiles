@@ -1,4 +1,5 @@
+hidpi: false
+laptop: false
 features:
   cmi: false
   quotatis: false
-hidpi: false
