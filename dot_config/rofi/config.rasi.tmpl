@@ -35,7 +35,11 @@ configuration {
 
     spacing: 0;
     background-color: transparent;
+{{ if .hidpi }}
     font: "Inter 16";
+{{ else }}
+    font: "Inter 11";
+{{ end }}
 }
 
 window {
