@@ -10,8 +10,8 @@ from gi.repository import GLib
 import subprocess
 import time
 
-TARGET_DEVICE_ADDRESS = "C8:7B:23:5C:7C:27"
-TARGET_SINK = "bluez_output.C8_7B_23_5C_7C_27.1"
+TARGET_DEVICE_ADDRESSES = ["C8:7B:23:5C:7C:27", "30:D8:75:09:A1:E9"]
+TARGET_SINK_FORMAT = "bluez_output.{address}.1"
 DEFAULT_SINK = "alsa_output.usb-C-Media_Electronics_Inc._USB_Audio_Device-00.analog-stereo"
 
 def sink_exists(sink_name):
@@ -57,19 +57,18 @@ def switch_sink(sink_name):
         print("Could not list sink inputs; perhaps none are active.")
     print("Switch complete.")
 
-
 def properties_changed(interface, changed, invalidated, path):
     """
     Called whenever any properties change on a DBus object.
-    We filter events for org.bluez.Device1 objects and look for changes to "Connected".
+    Filters events for org.bluez.Device1 objects and looks for changes to "Connected".
     """
     if "Connected" not in changed:
-        return  # nothing to do if the connection status didn’t change
+        return  # Nothing to do if the connection status didn’t change.
 
     connected = changed["Connected"]
     print(f"Device at {path} changed connected status to {connected}")
 
-    # Get the device properties to check if it is the one we care about.
+    # Get the device properties to check if it is one of the target devices.
     bus = dbus.SystemBus()
     device_object = bus.get_object("org.bluez", path)
     props_interface = dbus.Interface(device_object, "org.freedesktop.DBus.Properties")
@@ -79,16 +78,16 @@ def properties_changed(interface, changed, invalidated, path):
         print("Error getting device address:", e)
         return
 
-    if address != TARGET_DEVICE_ADDRESS:
-        return  # not our device
+    if address not in TARGET_DEVICE_ADDRESSES:
+        return  # Not one of our target devices.
 
     if connected:
-        # When the headset connects, wait for its sink to appear and then switch to it.
-        switch_sink(TARGET_SINK)
+        # Generate sink name using the device's address, replacing ":" with "_".
+        formatted_address = address.replace(":", "_")
+        sink_name = TARGET_SINK_FORMAT.format(address=formatted_address)
+        switch_sink(sink_name)
     else:
-        # When it disconnects, switch back to your default sink.
         switch_sink(DEFAULT_SINK)
-
 
 def main():
     # Set up the main loop.
@@ -107,7 +106,6 @@ def main():
     print("Bluetooth sink switcher running. Waiting for device events...")
     loop = GLib.MainLoop()
     loop.run()
-
 
 if __name__ == '__main__':
     main()
