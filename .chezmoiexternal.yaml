@@ -3,17 +3,10 @@
   url: "https://github.com/LazyVim/starter"
   refreshPeriod: "24h"
 
-{{ if .features.quotatis }}
-".quotatis":
+{{ if .features.kemeo }}
+".kemeo":
   type: "git-repo"
-  url: "git@github.com:Cydonia7/dotfiles-quotatis.git"
-  refreshPeriod: "24h"
-{{ end }}
-
-{{ if .features.cmi }}
-".cmi":
-  type: "git-repo"
-  url: "git@github.com:Cydonia7/dotfiles-cmi.git"
+  url: "git@github.com:Cydonia7/dotfiles-kemeo.git"
   refreshPeriod: "24h"
 {{ end }}
 
