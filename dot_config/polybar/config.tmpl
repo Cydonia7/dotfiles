@@ -23,7 +23,11 @@ border-top-size = 15
 background = "#991e1e2e"
 foreground = "#cdd6f4"
 padding = 4
+{{ if .hidpi }}
 module-margin = 2
+{{ else }}
+module-margin = 1
+{{ end }}
 
 scroll-up = i3-msg workspace next_on_output
 scroll-down = i3-msg workspace prev_on_output
@@ -51,8 +55,11 @@ label-charging = %percentage%% (%time%)
 type = internal/pulseaudio
 
 format-volume = <ramp-volume>  <label-volume>
+
+{{ if .hidpi }}
 format-volume-padding = 12px
 format-muted-padding = 12px
+{{ end }}
 
 label-muted =   Muet
 
