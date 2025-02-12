@@ -29,7 +29,7 @@ scroll-up = i3-msg workspace next_on_output
 scroll-down = i3-msg workspace prev_on_output
 
 modules-left = i3
-modules-right = {{ if .laptop }}battery {{ end }}date
+modules-right = pulseaudio {{ if .laptop }}battery {{ end }}date
 
 {{ if .laptop }}
 [module/battery]
@@ -46,6 +46,19 @@ time-format = %H:%M
 label-discharging = %percentage%% (%time%)
 label-charging = %percentage%% (%time%)
 {{ end }}
+
+[module/pulseaudio]
+type = internal/pulseaudio
+
+format-volume = <ramp-volume>  <label-volume>
+format-volume-padding = 12px
+format-muted-padding = 12px
+
+label-muted =   Muet
+
+ramp-volume-0 = 
+ramp-volume-1 = 
+ramp-volume-2 = 
 
 [module/date]
 type = internal/date
