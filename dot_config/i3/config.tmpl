@@ -50,6 +50,7 @@ bindsym XF86MonBrightnessDown exec --no-startup-id brightnessctl set 10-
 
 # Screenshots
 bindsym Print exec maim -s -u | xclip -selection clipboard -t image/png -i
+bindsym $mod+Shift+P exec maim -s -u | xclip -selection clipboard -t image/png -i
 
 # Use Mouse+$mod to drag floating windows to their wanted position
 floating_modifier $mod
