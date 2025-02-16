@@ -39,6 +39,7 @@ modules-right = pulseaudio {{ if .laptop }}battery {{ end }}date
 [module/battery]
 type = internal/battery
 
+format-charging = <ramp-capacity>  <label-charging>
 format-discharging = <ramp-capacity>  <label-discharging>
 ramp-capacity-0 = %{F#f38ba8}
 ramp-capacity-1 = %{F#fab387}
