@@ -33,7 +33,16 @@ scroll-up = i3-msg workspace next_on_output
 scroll-down = i3-msg workspace prev_on_output
 
 modules-left = i3
-modules-right = pulseaudio {{ if .laptop }}battery {{ end }}date
+modules-right = evolution-mail pulseaudio {{ if .laptop }}battery {{ end }}date
+
+[module/evolution-mail]
+type = custom/script
+exec = bash ~/.config/polybar/unread.sh
+interval = 60
+format-prefix = " "
+format-prefix-padding = 2pt
+format-padding = 3
+click-left = env GTK_THEME=Adwaita:light evolution
 
 {{ if .laptop }}
 [module/battery]
