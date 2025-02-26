@@ -1,0 +1,32 @@
+# See https://blog.gitbutler.com/how-git-core-devs-configure-git for details
+[user]
+	email = thomas.royer@cats-and-code.com
+	name = Thomas Royer
+[init]
+	defaultBranch = main
+[push]
+	autoSetupRemote = true
+	default = simple
+	followTags = true
+[column]
+	ui = auto
+[branch]
+	sort = -committerdate
+[tag]
+	sort = version:refname
+[diff]
+	algorithm = histogram
+	colorMoved = plain
+	mnemonicPrefix = true
+	renames = true
+[fetch]
+	prune = true
+	pruneTags = true
+	all = true
+[help]
+	autocorrect = prompt
+[rerere]
+	enabled = true
+	autoupdate = true
+[core]
+	excludesfile = /home/cydo/.gitignore
