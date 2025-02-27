@@ -4,7 +4,7 @@ DB_PATH="$HOME/.cache/evolution/mail"
 UNREAD_COUNT=0
 
 # Define folders to ignore (e.g., Spam, Trash, Drafts)
-IGNORE_FOLDERS=("Spam" "Corbeille" "Brouillons")
+IGNORE_FOLDERS=("Spam" "Corbeille" "Brouillons" "[Gmail]/All Mail" "[Gmail]/Tous les messages")
 
 # Loop through all Evolution mail databases
 for DB in "$DB_PATH"/*/folders.db; do
