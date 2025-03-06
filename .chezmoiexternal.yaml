@@ -10,3 +10,18 @@
   refreshPeriod: "24h"
 {{ end }}
 
+".config/tmux/plugins/catppuccin/tmux":
+  type: "git-repo"
+  url: "https://github.com/catppuccin/tmux.git"
+  refreshPeriod: "24h"
+
+".config/tmux/plugins/tmux-plugins/tmux-cpu":
+  type: "git-repo"
+  url: "https://github.com/tmux-plugins/tmux-cpu"
+  refreshPeriod: "24h"
+
+".config/tmux/plugins/tmux-plugins/tmux-battery":
+  type: "git-repo"
+  url: "https://github.com/tmux-plugins/tmux-battery"
+  refreshPeriod: "24h"
+
