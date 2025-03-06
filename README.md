@@ -52,3 +52,9 @@ Sources:
 - Reddit
 - Unsplash
 - Starkiteckt Designs
+
+## Enable services
+
+```bash
+espanso service register
+```
