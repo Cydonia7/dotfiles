@@ -43,7 +43,8 @@ export GDK_SCALE=2
 gsettings set org.gnome.settings-daemon.plugins.xsettings overrides "[{'Gdk/WindowScalingFactor', <$GDK_SCALE>}]"
 gsettings set org.gnome.desktop.interface scaling-factor $GDK_SCALE
 gsettings set org.gnome.desktop.interface text-scaling-factor $GDK_SCALE
-echo Xft.dpi: Xft.dpi: 150 >> .Xresources
+echo Xft.dpi: 150 >> .Xresources
+echo Xcursor.size: 32 >> .Xresources
 ```
 
 ## Find a high-quality wallpaper
