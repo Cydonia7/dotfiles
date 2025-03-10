@@ -1,0 +1,3 @@
+# Configure Lazyvim default Markdown linter to avoid line length warning
+config:
+  MD013: false
