@@ -9,3 +9,8 @@ for f in *; do
   ln -sf ~/.local/share/chezmoi/dot_config/nvim/lua/plugins/$f ~/.config/nvim/lua/plugins/$f
 done
 rm -f ~/.config/nvim/lua/plugins/example.lua
+
+cd ~/.local/share/chezmoi/dot_config/nvim/lua/config
+for f in *; do
+  ln -sf ~/.local/share/chezmoi/dot_config/nvim/lua/config/$f ~/.config/nvim/lua/config/$f
+done
