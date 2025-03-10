@@ -12,7 +12,7 @@ import time
 
 TARGET_DEVICE_ADDRESSES = ["C8:7B:23:5C:7C:27", "30:D8:75:09:A1:E9"]
 TARGET_SINK_FORMAT = "bluez_output.{address}.1"
-DEFAULT_SINK = "alsa_output.usb-C-Media_Electronics_Inc._USB_Audio_Device-00.analog-stereo"
+DEFAULT_SINK = "alsa_output.usb-C-Media_Electronics_Inc._USB_Audio_Device-00.iec958-stereo"
 
 def sink_exists(sink_name):
     """Return True if the sink exists in the current PulseAudio sinks."""
