@@ -8,5 +8,8 @@ return {
         args = { "--config", HOME .. "/.markdownlint-cli2.yaml", "--" },
       },
     },
+    linters_by_ft = {
+      php = {},
+    },
   },
 }
