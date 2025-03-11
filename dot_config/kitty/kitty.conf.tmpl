@@ -1,5 +1,10 @@
 include mocha.conf
 
+{{ if .hidpi }}
+font_size 13
+{{ else }}
+font_size 11
+{{ end }}
 font_family JetBrains Mono
 modify_font cell_height 110%
 modify_font cell_width 90%
