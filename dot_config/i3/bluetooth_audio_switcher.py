@@ -94,6 +94,8 @@ def main():
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
     bus = dbus.SystemBus()
 
+    switch_sink(DEFAULT_SINK)
+
     # Listen for PropertiesChanged signals on devices (BlueZ uses org.bluez.Device1).
     bus.add_signal_receiver(
         properties_changed,
