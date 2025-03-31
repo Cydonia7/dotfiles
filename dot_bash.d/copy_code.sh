@@ -18,6 +18,9 @@
 SEPARATOR="---"
 INCLUDE_EXTENSIONS=""
 EXCLUDE_EXTENSIONS=""
+printf -v COLOR_RESET '\e[0m'
+printf -v COLOR_GREEN '\e[32m'
+printf -v COLOR_YELLOW '\e[33m'
 
 # Helper functions
 
@@ -292,7 +295,7 @@ copy_code() {
     # Check if the file is binary
     if is_binary_file "$file"; then
       if [[ "$dry_run" == true ]]; then
-        echo "Would skip (binary): $file"
+        printf "${COLOR_YELLOW}Would skip (binary):${COLOR_RESET} %s\n" "$file"
       fi
       continue # Skip binary files
     fi
@@ -313,7 +316,7 @@ copy_code() {
       unset IFS # Reset IFS
       if [[ "$include" == false ]]; then
         if [[ "$dry_run" == true ]]; then
-          echo "Would skip (include filter): $file"
+          printf "${COLOR_YELLOW}Would skip (include filter):${COLOR_RESET} %s\n" "$file"
         fi
         continue
       fi
@@ -335,7 +338,7 @@ copy_code() {
       unset IFS # Reset IFS
       if [[ "$exclude" == true ]]; then
         if [[ "$dry_run" == true ]]; then
-          echo "Would skip (exclude filter): $file"
+          printf "${COLOR_YELLOW}Would skip (exclude filter):${COLOR_RESET} %s\n" "$file"
         fi
         continue
       fi
@@ -355,7 +358,7 @@ copy_code() {
   for file in "${filtered_files[@]}"; do
     local relative_path=$(get_relative_path "$file")
     if [[ "$dry_run" == true ]]; then
-      echo "Would copy: $relative_path"
+      printf "${COLOR_GREEN}Would copy:${COLOR_RESET} %s\n" "$relative_path"
     else
       # Check if file is readable one last time before cat
       if [[ -r "$file" ]]; then
