@@ -8,7 +8,7 @@ Install with:
 
 Install the following packages:
 
-`yay -S lightdm i3-wm i3lock neovim neovim-symlinks lightdm-gtk-greeter chezmoi kitty eza starship keychain zoxide dunst inter-font file-roller ttf-jetbrains-mono feh polybar rofi numlockx picom tmux ttf-nerd-fonts-symbols brightnessctl maim evolution espanso vim-spell-fr`
+`yay -S lightdm i3-wm i3lock neovim neovim-symlinks lightdm-gtk-greeter chezmoi kitty eza starship keychain zoxide dunst inter-font file-roller ttf-jetbrains-mono feh polybar rofi numlockx picom tmux ttf-nerd-fonts-symbols brightnessctl maim evolution espanso vim-spell-fr interception-caps2esc`
 
 ## Add machine-specific configuration
 
@@ -46,6 +46,10 @@ gsettings set org.gnome.desktop.interface text-scaling-factor $GDK_SCALE
 echo Xft.dpi: 150 >> .Xresources
 echo Xcursor.size: 32 >> .Xresources
 ```
+
+## Configure Caps lock key
+
+https://ejmastnak.com/tutorials/arch/caps2esc/
 
 ## Find a high-quality wallpaper
 
