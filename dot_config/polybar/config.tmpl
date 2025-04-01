@@ -33,6 +33,7 @@ scroll-up = i3-msg workspace next_on_output
 scroll-down = i3-msg workspace prev_on_output
 
 modules-left = i3
+modules-center = tray
 modules-right = evolution-mail pulseaudio {{ if .laptop }}battery {{ end }}date
 
 [module/evolution-mail]
@@ -109,3 +110,5 @@ label-separator-padding = 2
 index-sort = true
 pin-workspaces = true
 
+[module/tray]
+type = internal/tray

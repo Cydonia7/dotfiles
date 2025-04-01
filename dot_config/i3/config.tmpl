@@ -32,6 +32,8 @@ exec_always --no-startup-id feh --bg-scale {{ .chezmoi.homeDir }}/Images/backgro
 exec_always --no-startup-id killall picom; picom -I 0.05 -O 0.05 --focus-exclude "name *= 'i3lock'|| _NET_WM_STATE@[0]:32a = '_NET_WM_STATE_FULLSCREEN'" --fade-exclude "name = 'rofi'"
 exec_always --no-startup-id killall -q polybar; while pgrep -u $UID -x polybar >/dev/null; do sleep 1; done; for m in $(polybar --list-monitors | cut -d":" -f1); do MONITOR=$m polybar --reload main & done
 exec_always --no-startup-id killall dunst; dunst
+exec_always --no-startup-id killall snixembed; snixembed --fork
+exec_always --no-startup-id killall safeeyes; safeeyes
 
 # Use pactl to adjust volume in PulseAudio.
 set $refresh_i3status killall -SIGUSR1 i3status
