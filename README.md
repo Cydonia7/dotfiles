@@ -36,6 +36,10 @@ chezmoi cd
 git remote set-url --push origin git@github.com:Cydonia7/dotfiles.git
 ```
 
+## Brightness control on desktop
+
+https://moverest.xyz/blog/control-display-with-ddc-ci/
+
 ## Configure HiDPI if necessary
 
 ```bash
