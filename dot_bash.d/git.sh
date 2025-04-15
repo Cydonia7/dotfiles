@@ -127,7 +127,7 @@ alias gd="git diff" # Show diff
 alias gdc="git diff --cached" # Show cached diff
 alias gsh="git show" # Show commit
 alias gshh="git show HEAD" # Show HEAD
-alias gl="git --decorate-refs-exclude='*/HEAD' log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit" # Shows history
+alias gl="git log --decorate-refs-exclude='*/HEAD' --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit" # Shows history
 alias gla="gl --all"
 alias gsp='git standup' # Shows my recent commits
 
