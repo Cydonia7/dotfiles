@@ -34,7 +34,14 @@ scroll-down = i3-msg workspace prev_on_output
 
 modules-left = i3
 modules-center = tray
-modules-right = evolution-mail pulseaudio {{ if .laptop }}battery {{ end }}date
+modules-right = timer evolution-mail pulseaudio {{ if .laptop }}battery {{ end }}date
+
+[module/timer]
+type = custom/script
+exec = {{ .chezmoi.homeDir }}/Projects/cydo/timer/timer polybar-status
+interval = 1
+format = <label>
+format-underline = #f00
 
 [module/evolution-mail]
 type = custom/script

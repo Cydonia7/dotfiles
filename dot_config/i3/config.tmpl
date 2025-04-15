@@ -34,6 +34,11 @@ exec_always --no-startup-id killall -q polybar; while pgrep -u $UID -x polybar >
 exec_always --no-startup-id killall dunst; dunst
 exec_always --no-startup-id killall snixembed; snixembed --fork
 exec_always --no-startup-id killall safeeyes; safeeyes
+exec_always --no-startup-id killall timer; {{ .chezmoi.homeDir }}/Projects/cydo/timer/timer daemon
+
+bindsym $mod+t exec --no-startup-id {{ .chezmoi.homeDir }}/Projects/cydo/timer/timer start
+bindsym $mod+Shift+t exec --no-startup-id {{ .chezmoi.homeDir }}/Projects/cydo/timer/timer cancel
+
 
 # Use pactl to adjust volume in PulseAudio.
 set $refresh_i3status killall -SIGUSR1 i3status
