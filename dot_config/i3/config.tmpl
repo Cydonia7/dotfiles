@@ -39,7 +39,6 @@ exec_always --no-startup-id killall timer; {{ .chezmoi.homeDir }}/Projects/cydo/
 bindsym $mod+t exec --no-startup-id {{ .chezmoi.homeDir }}/Projects/cydo/timer/timer start
 bindsym $mod+Shift+t exec --no-startup-id {{ .chezmoi.homeDir }}/Projects/cydo/timer/timer cancel
 
-
 # Use pactl to adjust volume in PulseAudio.
 set $refresh_i3status killall -SIGUSR1 i3status
 bindsym XF86AudioRaiseVolume exec --no-startup-id wpctl set-volume @DEFAULT_AUDIO_SINK@ 10%+ && $refresh_i3status
