@@ -1,4 +1,5 @@
 [global]
+monitor = 1
 font = Inter 12
 gaps = true
 gap_size = 15
