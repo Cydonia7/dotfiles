@@ -14,6 +14,8 @@
   type: "git-repo"
   url: "https://github.com/catppuccin/tmux.git"
   refreshPeriod: "24h"
+  pull:
+    args: ["--prune", "--force", "--tags"]
 
 ".config/tmux/plugins/tmux-plugins/tmux-cpu":
   type: "git-repo"
