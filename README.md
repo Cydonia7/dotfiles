@@ -59,9 +59,8 @@ Sources:
 - Unsplash
 - Starkiteckt Designs
 
-## Enable services
+## Run the following commands
 
 ```bash
 xdg-settings set default-web-browser software.Browsers.desktop
-espanso service register
 ```
