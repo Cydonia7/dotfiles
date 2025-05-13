@@ -33,8 +33,10 @@ usage() {
   echo "  -g <revision_or_range>    Get modified files. Can be a single revision/branch (diffs from merge-base)"
   echo "                            or a range like rev1..rev2. Defaults to HEAD if no source given."
   echo "  -d <directory>            Get all files from a directory (recursive)."
+  echo "  -w <work_dir>             Specify a working directory to process. Can specify multiple with comma."
+  echo "                            If used, -g and -d apply within each work_dir."
   echo "  -i <extensions>           Include only files with these extensions (comma-separated). Example: -i py,js,html"
-  echo "  -e <extensions>           Exclude files with these extensions."
+  echo "  -e <extensions>           Exclude files with these extensions (comma-separated)."
   echo "  -s <separator>            Separator between files (default: '${DEFAULT_SEPARATOR}')."
   echo "  -r                        Dry run: show files that would be copied."
   echo "  -h                        Show help."
@@ -126,34 +128,54 @@ get_files_from_directory() {
 }
 
 # --- Main Function ---
+# --- Main Function ---
 copy_code() {
   # Reset getopts processing index for reliable option parsing on subsequent calls
   local OPTIND=1
 
   # Local variables for this function call, potentially overriding globals/defaults
-  local git_revisions=""
-  local directory=""
+  local GIT_REVISIONS_GLOBAL="" # Renamed to clarify it's the global option
+  local DIRECTORY_GLOBAL=""     # Renamed to clarify it's the global option
+  local -a WORK_DIRS=()
+  local used_w_option=false
+  local ORIGINAL_CWD=""
+
   local include_extensions=""
   local exclude_extensions=""
-  local separator="${DEFAULT_SEPARATOR}" # Start with default
+  local separator="${DEFAULT_SEPARATOR}"
   local output=""
-  local source_specified=false
+  local source_specified_globally=false # Tracks if -g or -d was specified globally
   local dry_run=false
 
-  # Parse command-line options specific to this call
-  while getopts "g:d:i:e:s:hr" opt; do
+  ORIGINAL_CWD=$(pwd)
+
+  while getopts "g:d:w:i:e:s:hr" opt; do
     case "$opt" in
     g)
-      git_revisions="$OPTARG"
-      source_specified=true
+      GIT_REVISIONS_GLOBAL="$OPTARG"
+      source_specified_globally=true
       ;;
     d)
-      directory="$OPTARG"
-      source_specified=true
+      DIRECTORY_GLOBAL="$OPTARG"
+      source_specified_globally=true
+      ;;
+    w)
+      local old_ifs="$IFS"
+      IFS=','
+      local single_w_arg="$OPTARG"      # Store OPTARG before it's clobbered by the loop
+      for dir_path in $single_w_arg; do # Split the argument from -w by comma
+        # Trim whitespace from individual dir_path
+        local trimmed_dir_path
+        trimmed_dir_path=$(echo "$dir_path" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        if [[ -n "$trimmed_dir_path" ]]; then # Add to WORK_DIRS if not empty
+          WORK_DIRS+=("$trimmed_dir_path")
+        fi
+      done
+      IFS="$old_ifs"
+      used_w_option=true
       ;;
     i) include_extensions="$OPTARG" ;;
     e) exclude_extensions="$OPTARG" ;;
-    # ------------------------------------
     s) separator="$OPTARG" ;;
     h)
       usage
@@ -167,143 +189,251 @@ copy_code() {
       ;;
     esac
   done
-  shift $((OPTIND - 1)) # Remove processed options
+  shift $((OPTIND - 1))
 
-  # Default to Git HEAD diff if no source (-g or -d) was specified
-  if [[ "$source_specified" == false ]]; then
-    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-      echo "Info: No source specified, defaulting to Git diff for current branch (HEAD)." >&2
-      git_revisions="HEAD"
-    else
-      echo "Error: No source specified (-g or -d) and not inside a Git repository." >&2
-      usage
-      return 1
-    fi
-  fi
-
-  # Sanity check: Ensure only one source type is effectively set
-  if [[ -n "$git_revisions" && -n "$directory" ]]; then
-    echo "Error: Specify either a Git revision (-g) or a directory (-d), not both." >&2
+  # Sanity check: Ensure only one global source type is specified
+  if [[ -n "$GIT_REVISIONS_GLOBAL" && -n "$DIRECTORY_GLOBAL" ]]; then
+    echo "Error: Specify either a global Git revision (-g) or a global directory (-d), not both." >&2
     usage
     return 1
   fi
 
-  # Get the initial list of files based on the source
-  local files_list=""
-  local -a files=() # Use local array
-  local exit_code=0
-
-  if [[ -n "$git_revisions" ]]; then
-    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-      echo "Error: -g specified, but not inside a Git repository." >&2
-      return 1
-    fi
-    files_list=$(get_git_modified_files "$git_revisions")
-    exit_code=$?
-    mapfile -t files <<<"$files_list" # Read list into array
-
-  elif [[ -n "$directory" ]]; then
-    files_list=$(get_files_from_directory "$directory")
-    exit_code=$?
-    mapfile -t files <<<"$files_list" # Read list into array
+  local -a actual_work_dirs_to_process=()
+  if [[ "${#WORK_DIRS[@]}" -gt 0 ]]; then
+    actual_work_dirs_to_process=("${WORK_DIRS[@]}")
   else
-    echo "Internal Error: No source determined." >&2
-    return 1 # Should not happen
+    actual_work_dirs_to_process=(".")
   fi
 
-  # Handle errors during file list retrieval
-  if [[ $exit_code -ne 0 ]]; then
-    echo "Error occurred while getting file list." >&2
-    return 1
-  fi
+  # --- Main Loop for Working Directories ---
+  local -a all_collected_files=() # Array to hold all files from all work_dirs
 
-  # Handle empty initial file list (not an error, just nothing found)
-  if [[ ${#files[@]} -eq 0 && -z "$files_list" ]]; then
-    echo "Info: No files found matching the initial criteria." >&2
+  for wd_rel_path_input in "${actual_work_dirs_to_process[@]}"; do
+    # Resolve the working directory path relative to ORIGINAL_CWD
+    # Using -m to allow non-existent paths for now, error handled below
+    local wd_abs_path
+    wd_abs_path=$(realpath -m "$ORIGINAL_CWD/$wd_rel_path_input" 2>/dev/null)
+
+    if [[ ! -d "$wd_abs_path" ]]; then
+      echo "Warning: Working directory '$wd_rel_path_input' (resolved to '$wd_abs_path') not found or not a directory. Skipping." >&2
+      continue
+    fi
+
+    # Use a subshell for cd to avoid pushd/popd complexities with error handling here
+    # or manage pushd/popd carefully. Let's try subshell first for simplicity.
+    # Subshell output needs to be captured.
+
+    # Alternative using pushd/popd for more direct control if subshell gets complex with return values
+    if ! pushd "$wd_abs_path" >/dev/null; then
+      echo "Error: Could not change to directory '$wd_abs_path'. Skipping." >&2
+      continue
+    fi
+
+    local files_list_segment=""
+    local exit_code_segment=0
+    local current_source_is_git=false
+    local current_source_is_dir=false
+    local effective_git_revisions="$GIT_REVISIONS_GLOBAL"
+    local effective_directory="$DIRECTORY_GLOBAL"
+
+    # Determine source for this specific working directory
+    if [[ -n "$GIT_REVISIONS_GLOBAL" ]]; then
+      current_source_is_git=true
+    elif [[ -n "$DIRECTORY_GLOBAL" ]]; then
+      current_source_is_dir=true
+    else # No global -g or -d, default to Git HEAD for this wd
+      if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        effective_git_revisions="HEAD"
+        current_source_is_git=true
+        # Don't echo info here, it's per-wd, might be noisy.
+        # Could add a verbose mode later if needed.
+      else
+        # If not a git repo and no -d global, there's nothing to do for this wd by default
+        if [[ "$used_w_option" == true ]]; then # Only warn if -w was explicitly used
+          echo "Info: Working directory '$wd_rel_path_input' is not a Git repository and no -d source specified. Nothing to process by default." >&2
+        else # If not using -w (so processing '.'), and it's not a git repo, and no -d.
+          # This case is similar to the original script's error.
+          echo "Error: No source specified (-g or -d) and current directory '$wd_rel_path_input' is not a Git repository." >&2
+          # If only one "work_dir" ('.') and it fails like this, the whole script might as well fail.
+          if [[ ${#actual_work_dirs_to_process[@]} -eq 1 ]]; then
+            popd >/dev/null
+            usage
+            return 1
+          fi
+        fi
+        popd >/dev/null
+        continue
+      fi
+    fi
+
+    # Get the initial list of files based on the determined source for this wd
+    local -a files_segment_arr=()
+
+    if [[ "$current_source_is_git" == true ]]; then
+      if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        echo "Warning: Git source specified for '$wd_rel_path_input', but it's not a Git repository. Skipping." >&2
+        popd >/dev/null
+        continue
+      fi
+      files_list_segment=$(get_git_modified_files "$effective_git_revisions")
+      exit_code_segment=$?
+      mapfile -t files_segment_arr <<<"$files_list_segment"
+
+    elif [[ "$current_source_is_dir" == true ]]; then
+      # effective_directory path is relative to the current wd_abs_path
+      if [[ ! -d "$effective_directory" ]]; then
+        echo "Warning: Source directory '$effective_directory' not found within '$wd_rel_path_input'. Skipping." >&2
+        popd >/dev/null
+        continue
+      fi
+      files_list_segment=$(get_files_from_directory "$effective_directory")
+      exit_code_segment=$?
+      mapfile -t files_segment_arr <<<"$files_list_segment"
+    fi
+
+    if [[ $exit_code_segment -ne 0 ]]; then
+      echo "Warning: Error occurred while getting file list for '$wd_rel_path_input'. Skipping." >&2
+      popd >/dev/null
+      continue
+    fi
+
+    if [[ ${#files_segment_arr[@]} -eq 0 && -z "$files_list_segment" ]]; then
+      # This is not an error, just no files found for this segment
+      # echo "Info: No files found for '$wd_rel_path_input' with current criteria." >&2
+      popd >/dev/null
+      continue
+    fi
+
+    # Prefix files with wd_rel_path_input (if not ".") and add to all_collected_files
+    for file_in_wd in "${files_segment_arr[@]}"; do
+      [[ -z "$file_in_wd" ]] && continue # Skip empty lines
+      local prefixed_file_path
+      if [[ "$wd_rel_path_input" == "." ]]; then
+        prefixed_file_path="$file_in_wd"
+      else
+        # Ensure no double slashes if wd_rel_path_input ends with / and file_in_wd starts with / (though find/git shouldn't do that)
+        prefixed_file_path="${wd_rel_path_input%/}/${file_in_wd}"
+      fi
+      # Normalize the path to remove ./ and ../ components if any are introduced
+      # This normalization should happen relative to ORIGINAL_CWD
+      local normalized_path
+      normalized_path=$(realpath -m --relative-to="$ORIGINAL_CWD" "$ORIGINAL_CWD/$prefixed_file_path")
+      all_collected_files+=("$normalized_path")
+    done
+
+    popd >/dev/null # Return from wd_abs_path
+  done              # End of main loop for working directories
+
+  # --- At this point, all_collected_files contains all paths relative to ORIGINAL_CWD ---
+  # --- The rest of the script (filtering, output) will operate on all_collected_files ---
+
+  # Remove the temporary test output from Phase 1
+  # if [[ "$dry_run" == true || "$used_w_option" == true ]]; then ... fi
+
+  # Check if any files were collected overall
+  if [[ ${#all_collected_files[@]} -eq 0 ]]; then
+    echo "Info: No files found matching the criteria across all specified working directories." >&2
     return 0
   fi
 
-  # --- Filtering Logic ---
-  local -a filtered_files=() # Use local array
-  for file in "${files[@]}"; do
-    [[ -z "$file" ]] && continue # Skip empty entries if any
-    if [[ ! -f "$file" ]]; then  # Check if file exists now
-      echo "Warning: File '$file' listed but not found, skipping." >&2
+  # --- Filtering Logic (operates on all_collected_files) ---
+  # We now use 'all_collected_files' instead of 'files'
+  local -a filtered_files=()
+  for file in "${all_collected_files[@]}"; do # Iterate over the globally collected files
+    [[ -z "$file" ]] && continue
+
+    # Check file existence using path relative to ORIGINAL_CWD
+    # This needs to be file_abs_path for is_binary and extension checks.
+    # The 'file' variable is already relative to ORIGINAL_CWD.
+    local file_to_check_abs_path="$ORIGINAL_CWD/$file"
+
+    if [[ ! -f "$file_to_check_abs_path" ]]; then
+      echo "Warning: File '$file' (resolved to '$file_to_check_abs_path') listed but not found, skipping." >&2
       continue
     fi
 
-    local extension="${file##*.}"
+    local extension="${file##*.}" # Extension from the path relative to ORIGINAL_CWD
 
-    # Binary file check
-    if is_binary_file "$file"; then
-      [[ "$dry_run" == true ]] && printf "${COLOR_YELLOW}Would skip (binary):${COLOR_RESET} %s\n" "$file"
+    # Binary file check (needs absolute path or path relative to current CWD)
+    if is_binary_file "$file_to_check_abs_path"; then
+      [[ "$dry_run" == true ]] && printf "${COLOR_YELLOW}Would skip (binary):${COLOR_RESET} %s\n" "$file" # Display relative path
       continue
     fi
 
-    # Include filter check (uses local include_extensions)
+    # Include filter check
     if [[ -n "$include_extensions" ]]; then
       local include=false
-      local IFS=','
-      for ext in $include_extensions; do
-        ext=$(echo "$ext" | xargs) # Trim whitespace
-        if [[ "$extension" == "$ext" ]]; then
+      # Save original IFS and set to comma for splitting
+      local old_ifs="$IFS"
+      IFS=','
+      for ext_pattern in $include_extensions; do # Now $include_extensions is split by comma
+        # Trim whitespace from individual ext_pattern
+        ext_pattern=$(echo "$ext_pattern" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') # More robust trim
+        if [[ -n "$ext_pattern" && "$extension" == "$ext_pattern" ]]; then             # Check if ext_pattern is not empty
           include=true
           break
         fi
       done
-      unset IFS
+      IFS="$old_ifs" # Restore original IFS
       if [[ "$include" == false ]]; then
         [[ "$dry_run" == true ]] && printf "${COLOR_YELLOW}Would skip (include filter):${COLOR_RESET} %s\n" "$file"
         continue
       fi
     fi
 
-    # Exclude filter check (uses local exclude_extensions)
+    # Exclude filter check
     if [[ -n "$exclude_extensions" ]]; then
       local exclude=false
-      local IFS=','
-      for ext in $exclude_extensions; do
-        ext=$(echo "$ext" | xargs) # Trim whitespace
-        if [[ "$extension" == "$ext" ]]; then
+      # Save original IFS and set to comma for splitting
+      local old_ifs="$IFS"
+      IFS=','
+      for ext_pattern in $exclude_extensions; do # Now $exclude_extensions is split by comma
+        # Trim whitespace from individual ext_pattern
+        ext_pattern=$(echo "$ext_pattern" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') # More robust trim
+        if [[ -n "$ext_pattern" && "$extension" == "$ext_pattern" ]]; then             # Check if ext_pattern is not empty
           exclude=true
           break
         fi
       done
-      unset IFS
+      IFS="$old_ifs" # Restore original IFS
       if [[ "$exclude" == true ]]; then
         [[ "$dry_run" == true ]] && printf "${COLOR_YELLOW}Would skip (exclude filter):${COLOR_RESET} %s\n" "$file"
         continue
       fi
     fi
 
-    # If we passed all checks, add to the final list
     filtered_files+=("$file")
   done
 
-  # Handle case where filtering removed all files
   if [[ ${#filtered_files[@]} -eq 0 ]]; then
     echo "Info: No non-binary files found matching the criteria after filtering." >&2
     return 0
   fi
 
   # --- Output Generation or Dry Run ---
+  # The 'file' variable in this loop is already the path relative to ORIGINAL_CWD
+  # which is what we want for the "File: ..." header when -w is used.
   local redact_regex="s/([a-zA-Z0-9_]*[Aa][Pp][Ii]\s*[Kk][Ee][Yy][a-zA-Z0-9_]*\s*[:=]\s*)(['\"])(.*?)\2([;,]?)/\1\2REDACTED\2\4/g"
 
   for file in "${filtered_files[@]}"; do
-    local relative_path
-    relative_path=$(get_relative_path "$file")
+    # 'file' is already the path like 'repoA/file.txt' or 'file_in_root.txt'
+    # The get_relative_path function will need adjustment in Phase 3 to handle this.
+    # For Phase 2, we can temporarily just use 'file' for the header.
+    local display_path="$file"
 
     if [[ "$dry_run" == true ]]; then
-      printf "${COLOR_GREEN}Would copy:${COLOR_RESET} %s\n" "$relative_path"
+      printf "${COLOR_GREEN}Would copy:${COLOR_RESET} %s\n" "$display_path"
     else
-      if [[ -r "$file" ]]; then
-        output+="--- File: ${relative_path} ---"
+      # We need the absolute path to cat the file
+      local file_to_cat_abs_path="$ORIGINAL_CWD/$file"
+      if [[ -r "$file_to_cat_abs_path" ]]; then
+        output+="--- File: ${display_path} ---"
         output+=$'\n'
-        output+="$(cat "$file" | sed -E "$redact_regex")"
-        # ------------------------------
+        # Ensure cat uses the correct absolute path
+        output+="$(cat "$file_to_cat_abs_path" | sed -E "$redact_regex")"
         output+=$'\n'"${separator}"$'\n'
       else
-        echo "Warning: Cannot read file '$relative_path' just before copying, skipping." >&2
+        echo "Warning: Cannot read file '$display_path' (resolved to '$file_to_cat_abs_path') just before copying, skipping." >&2
       fi
     fi
   done
@@ -315,7 +445,7 @@ copy_code() {
         echo -n "$output" | xclip -sel clipboard
         echo "Code copied to clipboard."
       else
-        echo "Info: No content generated to copy." >&2 # Should not happen if filtering logic is correct
+        echo "Info: No content generated to copy." >&2
       fi
     else
       echo "Warning: xclip not found. Printing to stdout instead." >&2
@@ -323,7 +453,7 @@ copy_code() {
     fi
   fi
 
-  return 0 # Indicate overall success
+  return 0
 }
 
 # --- Execution / Alias Definition ---
