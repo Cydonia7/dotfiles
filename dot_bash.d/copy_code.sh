@@ -287,6 +287,8 @@ copy_code() {
   fi
 
   # --- Output Generation or Dry Run ---
+  local redact_regex="s/([a-zA-Z0-9_]*[Aa][Pp][Ii]\s*[Kk][Ee][Yy][a-zA-Z0-9_]*\s*[:=]\s*)(['\"])(.*?)\2([;,]?)/\1\2REDACTED\2\4/g"
+
   for file in "${filtered_files[@]}"; do
     local relative_path
     relative_path=$(get_relative_path "$file")
@@ -297,7 +299,8 @@ copy_code() {
       if [[ -r "$file" ]]; then
         output+="--- File: ${relative_path} ---"
         output+=$'\n'
-        output+="$(cat "$file")"
+        output+="$(cat "$file" | sed -E "$redact_regex")"
+        # ------------------------------
         output+=$'\n'"${separator}"$'\n'
       else
         echo "Warning: Cannot read file '$relative_path' just before copying, skipping." >&2
