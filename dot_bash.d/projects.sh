@@ -1,10 +1,16 @@
+# Localhost helper
+alias lh="bash $HOME/.bin/localhost"
+
 # Lycra
 alias zla="cd /home/cydo/Projects/hiway/lycra/application"
 alias zld="cd /home/cydo/Projects/hiway/lycra/infrastructure/deploy"
 
 # Lycra deploy run
 ldr() {
-  (zld; ./$@)
+  (
+    zld
+    ./$@
+  )
 }
 
 alias ldra="APP_CONTEXT=all ldr"
@@ -25,7 +31,7 @@ _ldr_completion() {
   COMPREPLY=($(compgen -f -- "$cur" | grep -Ev "$blacklist_patterns"))
 
   # Return to the original directory
-  cd - > /dev/null 2>&1
+  cd - >/dev/null 2>&1
 }
 
 complete -F _ldr_completion ldr
@@ -34,4 +40,3 @@ complete -F _ldr_completion ldrp
 complete -F _ldr_completion ldrpp
 complete -F _ldr_completion ldrs
 complete -F _ldr_completion ldrd
-
