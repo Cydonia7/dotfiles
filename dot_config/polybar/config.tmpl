@@ -34,7 +34,7 @@ scroll-down = i3-msg workspace prev_on_output
 
 modules-left = i3
 modules-center = tray
-modules-right = evolution-mail pulseaudio {{ if .laptop }}battery {{ end }}date
+modules-right = google-calendar evolution-mail pulseaudio {{ if .laptop }}battery {{ end }}date
 
 #[module/timer]
 #type = custom/script
@@ -42,6 +42,18 @@ modules-right = evolution-mail pulseaudio {{ if .laptop }}battery {{ end }}date
 #interval = 1
 #format = <label>
 #format-underline = #f00
+
+[module/google-calendar]
+type = custom/script
+exec = ~/Projects/cydo/polybar-gcal/polybar-gcal --polybar
+click-right = kitty --title "PolybarGcalEvents" -e sh -c '~/Projects/cydo/polybar-gcal/polybar-gcal --list-events; read -n1' &
+interval = 600
+tail = false
+format-prefix = " "
+format-prefix-padding = 3pt
+format-prefix-foreground = ${colors.blue}
+format = <label>
+label = %output%
 
 [module/evolution-mail]
 type = custom/script
