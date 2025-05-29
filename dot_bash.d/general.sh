@@ -6,6 +6,7 @@ source /usr/share/fzf/key-bindings.bash
 alias sa="ssh-add"     # Add key to the SSH agent
 alias sl="keychain -l" # List keys in the SSH agent
 alias eb="exec bash"
+alias cb="xclip -sel clipboard"
 
 eval "$(zoxide init bash)"
 
