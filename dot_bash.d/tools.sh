@@ -32,4 +32,4 @@ airstatus() {
   uv run "$repo/main.py"
 }
 
-alias as=airstatus
+alias ast=airstatus
