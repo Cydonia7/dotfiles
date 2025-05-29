@@ -47,7 +47,7 @@ modules-right = google-calendar evolution-mail pulseaudio {{ if .laptop }}batter
 type = custom/script
 exec = ~/Projects/cydo/polybar-gcal/polybar-gcal --polybar
 click-right = kitty --title "PolybarGcalEvents" -e sh -c '~/Projects/cydo/polybar-gcal/polybar-gcal --list-events; read -n1' &
-click-middle = sh -c 'MEET_URL_FILE="$HOME/.cache/polybar-google-calendar/current_meet_url.txt"; if [ -s "$MEET_URL_FILE" ]; then MEET_URL=$(cat "$MEET_URL_FILE"); google-chrome-stable "$MEET_URL"; else dunstify -a "PolybarGcal" -u normal -i "dialog-information" "Google Calendar" "Aucun lien Google Meet pour l'\''événement actuel."; fi' &
+click-left = sh -c 'MEET_URL_FILE="$HOME/.cache/polybar-google-calendar/current_meet_url.txt"; if [ -s "$MEET_URL_FILE" ]; then MEET_URL=$(cat "$MEET_URL_FILE"); google-chrome-stable "$MEET_URL"; else dunstify -a "PolybarGcal" -u normal -i "dialog-information" "Google Calendar" "Aucun lien Google Meet pour l'\''événement actuel."; fi' &
 interval = 600
 tail = false
 format-prefix = " "
