@@ -74,6 +74,9 @@ bindsym $mod+Return exec kitty
 bindsym $mod+c exec firefox
 bindsym $mod+shift+c exec google-chrome-stable
 
+bindsym $mod+i exec {{ .chezmoi.homeDir }}/.local/bin/hints
+bindsym $mod+y exec {{ .chezmoi.homeDir }}/.local/bin/hints --mode scroll
+
 bindsym $mod+l exec i3lock
 
 # kill focused window
