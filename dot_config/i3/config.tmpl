@@ -28,7 +28,7 @@ exec python {{ .chezmoi.homeDir }}/.config/i3/bluetooth_audio_switcher.py
 # If inside VMWare, then enable copy-paste
 {{ output "bash" "-c" "if lspci | grep VMware > /dev/null; then echo exec --no-startup-id vmware-user; fi" }}
 
-exec_always --no-startup-id feh --bg-scale {{ .chezmoi.homeDir }}/Images/background.png
+exec_always --no-startup-id killall bg_switcher.sh; {{ .chezmoi.homeDir }}/.config/i3/bg_switcher.sh
 exec_always --no-startup-id killall picom; picom -I 0.05 -O 0.05 --focus-exclude "name *= 'i3lock'|| _NET_WM_STATE@[0]:32a = '_NET_WM_STATE_FULLSCREEN'" --fade-exclude "name = 'rofi'"
 exec_always --no-startup-id killall -q polybar; while pgrep -u $UID -x polybar >/dev/null; do sleep 1; done; for m in $(polybar --list-monitors | cut -d":" -f1); do MONITOR=$m polybar --reload main & done
 exec_always --no-startup-id killall dunst; dunst
