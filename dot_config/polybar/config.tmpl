@@ -32,9 +32,14 @@ module-margin = 1
 scroll-up = i3-msg workspace next_on_output
 scroll-down = i3-msg workspace prev_on_output
 
-modules-left = i3
+modules-left = jgmenu i3
 modules-center = tray
 modules-right = google-calendar evolution-mail pulseaudio {{ if .laptop }}battery {{ end }}date
+
+[module/jgmenu]
+type = custom/text
+content = "     "
+click-left = "jgmenu_run >/dev/null 2>&1 &"
 
 #[module/timer]
 #type = custom/script
