@@ -9,7 +9,6 @@ alias eb="exec bash"
 alias cb="xclip -sel clipboard"
 
 eval "$(zoxide init bash)"
-eval "$(atuin init bash)"
 
 eval -- "$(/usr/bin/starship init bash --print-full-init)"
 eval $(fzf --bash)
