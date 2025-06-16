@@ -8,6 +8,7 @@ alias sl="keychain -l" # List keys in the SSH agent
 alias eb="exec bash"
 alias cb="xclip -sel clipboard"
 
+[[ $- == *i* ]] && source /usr/share/blesh/ble.sh
 eval "$(zoxide init bash)"
 eval "$(atuin init bash)"
 
