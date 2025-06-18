@@ -122,11 +122,13 @@ alias gpsof="git push origin --force-with-lease" # Push to origin, force with le
 
 ## Inspect repository
 
-alias gs="git status" # Show status
-alias gd="git diff" # Show diff
-alias gdc="git diff --cached" # Show cached diff
-alias gsh="git show" # Show commit
-alias gshh="git show HEAD" # Show HEAD
+alias gs="git status"                                                                                                                                                       # Show status
+alias gd="git diff"                                                                                                                                                         # Show diff (unstaged files)
+alias gdc="git diff --cached"                                                                                                                                               # Show cached diff (staged files)
+alias gdh="git diff HEAD"                                                                                                                                                   # Show HEAD diff (unstaged & stages files)
+alias gda="git --no-pager diff HEAD && git ls-files --others --exclude-standard -z | xargs -0 -r -I{} git --no-pager diff --no-index /dev/null {}"                          # Shows all diff (untracked & unstaged & staged files)
+alias gsh="git show"                                                                                                                                                        # Show commit
+alias gshh="git show HEAD"                                                                                                                                                  # Show HEAD
 alias gl="git log --decorate-refs-exclude='*/HEAD' --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit" # Shows history
 alias gla="gl --all"
 alias gsp='git standup' # Shows my recent commits
