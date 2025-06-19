@@ -117,7 +117,7 @@ format-prefix = 󰥔
 format-prefix-padding = 2
 format-margin = 3px
 
-label = %date% %time%
+label = "%{A1:kitty --title "PolybarCal" -e sh -c 'source ~/.bin/center.sh; cal -y -m -c 4 | vcenter; read -n1' &:}%date% %time%%{A}"
 
 [module/i3]
 type = internal/i3

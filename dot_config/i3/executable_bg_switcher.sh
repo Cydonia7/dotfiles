@@ -8,11 +8,14 @@ while true; do
 
   HOUR=$(date +'%H')
 
-  if [ "$HOUR" -ge 7 ] && [ "$HOUR" -lt 20 ]; then
-    feh --bg-scale ~/Images/background.png
+  hour=$(date +%H)
+  if ((hour >= 7 && hour < 20)); then
+    img="$HOME/Images/background.png"
   else
-    feh --bg-scale ~/Images/background-night.png
+    img="$HOME/Images/background-night.png"
   fi
+
+  feh --no-fehbg --bg-scale "$img" "$img"
 
   # Check every 15 minutes
   sleep 900
