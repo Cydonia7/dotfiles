@@ -51,8 +51,8 @@ click-left = "jgmenu_run >/dev/null 2>&1 &"
 [module/google-calendar]
 type = custom/script
 exec = ~/Projects/cydo/polybar-gcal/polybar-gcal --polybar
-click-right = kitty --title "PolybarGcalEvents" -e sh -c '~/Projects/cydo/polybar-gcal/polybar-gcal --list-events; read -n1' &
-click-left = sh -c 'MEET_URL_FILE="$HOME/.cache/polybar-google-calendar/current_meet_url.txt"; if [ -s "$MEET_URL_FILE" ]; then MEET_URL=$(cat "$MEET_URL_FILE"); google-chrome-stable "$MEET_URL"; else dunstify -a "PolybarGcal" -u normal -i "dialog-information" "Google Calendar" "Aucun lien Google Meet pour l'\''événement actuel."; fi' &
+click-left = kitty --title "PolybarGcalEvents" -e sh -c '~/Projects/cydo/polybar-gcal/polybar-gcal --list-events; read -n1' &
+click-right = sh -c 'MEET_URL_FILE="$HOME/.cache/polybar-google-calendar/current_meet_url.txt"; if [ -s "$MEET_URL_FILE" ]; then MEET_URL=$(cat "$MEET_URL_FILE"); google-chrome-stable "$MEET_URL"; else dunstify -a "PolybarGcal" -u normal -i "dialog-information" "Google Calendar" "Aucun lien Google Meet pour l'\''événement actuel."; fi' &
 interval = 600
 tail = false
 format-prefix = " "
@@ -117,7 +117,7 @@ format-prefix = 󰥔
 format-prefix-padding = 2
 format-margin = 3px
 
-label = "%{A1:kitty --title "PolybarCal" -e sh -c 'source ~/.bin/center.sh; cal -y -m -c 4 | vcenter; read -n1' &:}%date% %time%%{A}"
+label = "%{A1:kitty --title "PolybarCal" -e sh -c 'cal -y -m -c 4 --color=always | bash ~/.bin/center.sh; read -n1' &:}%date% %time%%{A}"
 
 [module/i3]
 type = internal/i3
