@@ -40,11 +40,11 @@ function gclo() {
     if [[ -z $answer ]]; then
       while true; do
         echo -en "${YELLOW}Do you want to clone $repo? (y/n/o)${RESET} "
-        read -rs -n1 user_answer < /dev/tty
+        read -rs -n1 user_answer </dev/tty
         echo $user_answer
         if [[ $user_answer == "y" ]] || [[ $user_answer == "n" ]]; then
           answer=$user_answer
-          echo "$repo=$answer" >> $remembered_file
+          echo "$repo=$answer" >>$remembered_file
           break
         elif [[ $user_answer == "o" ]]; then
           xdg-open "https://github.com/$repo" >/dev/null 2>&1 &
@@ -73,14 +73,14 @@ function gclo() {
     else
       echo -e "${GREEN}Skipping $repo${RESET}"
     fi
-  done < $remembered_file
+  done <$remembered_file
 }
 
-alias gf="git fetch --prune" # Fetch from the server
+alias gf="git fetch --prune"         # Fetch from the server
 alias gfo="git fetch origin --prune" # Fetch origin
-alias gfa="git fetch --all --prune" # Fetch all remotes
-alias gpl="git pull" # Pull
-alias gplo="git pull origin" # Pull from origin
+alias gfa="git fetch --all --prune"  # Fetch all remotes
+alias gpl="git pull"                 # Pull
+alias gplo="git pull origin"         # Pull from origin
 
 # Checkout remote branch
 gcr() {
@@ -98,10 +98,11 @@ ga() {
   git add "$@" && git status
 }
 
-alias gap="git add -N . && git add -p && git status" # Add patches
-alias gam="git add -u && git status" # Add modified files
-alias gaa="git add -A && git status" # Add everything
-alias gcl="git clean -fdx && git status" # Clean the working dir
+alias gap="git add -N . && git add -p && git status"                # Add patches
+alias gam="git add -u && git status"                                # Add modified files
+alias gaa="git add -A && git status"                                # Add everything
+alias gcl="git clean -fdx && git status"                            # Clean the working dir
+alias gcf="git ls-files --others --exclude-standard | xargs rm -rf" # Clean non-ignored untracked files
 
 alias gra="gr ." # Restore everything
 
@@ -110,15 +111,15 @@ gr() {
   git restore --staged "$@" && git status
 }
 
-alias gst="git stash" # Stash changes
-alias gstp="git stash pop" # Pop stash changes
-alias gcm="git commit -m" # Commit
-alias gca="git commit --amend" # Amend previous commit
-alias gcan="git commit --amend --no-edit" # Amend previous commit without editing
+alias gst="git stash"                                                                           # Stash changes
+alias gstp="git stash pop"                                                                      # Pop stash changes
+alias gcm="git commit -m"                                                                       # Commit
+alias gca="git commit --amend"                                                                  # Amend previous commit
+alias gcan="git commit --amend --no-edit"                                                       # Amend previous commit without editing
 alias gad='LC_ALL=C GIT_COMMITTER_DATE="$(date)" git commit --amend --no-edit --date "$(date)"' # Amend previous commit date
-alias gps="git push" # Push changes
-alias gpso="git push origin" # Push to origin
-alias gpsof="git push origin --force-with-lease" # Push to origin, force with lease
+alias gps="git push"                                                                            # Push changes
+alias gpso="git push origin"                                                                    # Push to origin
+alias gpsof="git push origin --force-with-lease"                                                # Push to origin, force with lease
 
 ## Inspect repository
 
@@ -144,8 +145,8 @@ gc() {
   fi
 }
 
-alias gb="git branch" # List branches
-alias gba="git branch -a" # List all branches
+alias gb="git branch"       # List branches
+alias gba="git branch -a"   # List all branches
 alias gnb="git checkout -b" # Checkout new branch
 
 # Erase current branch
@@ -165,7 +166,6 @@ gbd() {
   fi
 }
 
-alias grb="git rebase" # Rebase onto branch
+alias grb="git rebase"             # Rebase onto branch
 alias grbc="git rebase --continue" # Continue rebase
-alias grba="git rebase --abort" # Abort rebase
-
+alias grba="git rebase --abort"    # Abort rebase
