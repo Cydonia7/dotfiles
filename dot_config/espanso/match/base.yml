@@ -20,8 +20,8 @@ matches:
         params:
           format: "%m/%d/%Y"
 
-  # Prompt for video transcription summary
-  - trigger: ":prt"
+  # Prompt for prompt generation
+  - trigger: ":prp"
     vars:
       - name: model
         type: choice
