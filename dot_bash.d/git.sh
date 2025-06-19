@@ -102,7 +102,7 @@ alias gap="git add -N . && git add -p && git status"                # Add patche
 alias gam="git add -u && git status"                                # Add modified files
 alias gaa="git add -A && git status"                                # Add everything
 alias gcl="git clean -fdx && git status"                            # Clean the working dir
-alias gcf="git ls-files --others --exclude-standard | xargs rm -rf" # Clean non-ignored untracked files
+alias gcu="git ls-files --others --exclude-standard | xargs rm -rf" # Clean non-ignored untracked files
 
 alias gra="gr ." # Restore everything
 
