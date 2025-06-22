@@ -8,7 +8,7 @@ Install with:
 
 Install the following packages:
 
-`yay -S --noconfirm lightdm i3-wm i3lock neovim neovim-symlinks lightdm-gtk-greeter chezmoi kitty eza starship keychain zoxide dunst inter-font file-roller ttf-jetbrains-mono feh polybar rofi numlockx picom tmux ttf-nerd-fonts-symbols brightnessctl maim evolution espanso-x11-bin vim-spell-fr snixembed safeeyes xprintidle brightness redshift browsers-bin jgmenu satty`
+`yay -S --noconfirm lightdm i3-wm i3lock neovim neovim-symlinks lightdm-gtk-greeter chezmoi kitty eza starship keychain zoxide dunst inter-font file-roller ttf-jetbrains-mono feh polybar rofi numlockx picom tmux ttf-nerd-fonts-symbols brightnessctl maim evolution espanso-x11-bin vim-spell-fr snixembed safeeyes xprintidle brightness redshift browsers-bin jgmenu satty clipnotify`
 
 ## Add machine-specific configuration
 
@@ -65,4 +65,11 @@ Sources:
 xdg-settings set default-web-browser software.Browsers.desktop
 espanso service register
 espanso service start
+```
+
+## Install private projects
+
+```bash
+git clone git@gitlab.com:Cydonia7/go-clipboard-daemon.git && cd go-clipboard-daemon && go install && cd .. && rm -rf go-clipboard-daemon
+git clone git@gitlab.com:Cydonia7/polybar-gcal.git && cd polybar-gcal && go install && cp credentials.json ~/.go/bin/.gcal-credentials.json && cd .. && rm -rf polybar-gcal
 ```
