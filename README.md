@@ -73,3 +73,12 @@ espanso service start
 git clone git@gitlab.com:Cydonia7/go-clipboard-daemon.git && cd go-clipboard-daemon && go install && cd .. && rm -rf go-clipboard-daemon
 git clone git@gitlab.com:Cydonia7/polybar-gcal.git && cd polybar-gcal && go install && cp credentials.json ~/.go/bin/.gcal-credentials.json && cd .. && rm -rf polybar-gcal
 ```
+
+## Change the font name
+
+In `.config/gtk-3.0/settings.ini`,  add:
+
+```ini
+[Settings]
+gtk-font-name=Fira Sans 10
+```
