@@ -34,7 +34,7 @@ exec_always --no-startup-id killall -q polybar; while pgrep -u $UID -x polybar >
 exec_always --no-startup-id killall dunst; dunst
 exec_always --no-startup-id killall snixembed; snixembed --fork
 exec_always --no-startup-id killall safeeyes; safeeyes
-exec_always --no-startup-id killall go-clipboard-daemon; {{ .chezmoi.homeDir }}/.go/bin/go-clipboard-daemon
+exec_always --no-startup-id sleep 5; killall go-clipboard-daemon; {{ .chezmoi.homeDir }}/.go/bin/go-clipboard-daemon
 #exec_always --no-startup-id killall timer; {{ .chezmoi.homeDir }}/Projects/cydo/timer/timer daemon
 #
 #bindsym $mod+t exec --no-startup-id {{ .chezmoi.homeDir }}/Projects/cydo/timer/timer start
