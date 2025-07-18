@@ -120,6 +120,7 @@ alias gad='LC_ALL=C GIT_COMMITTER_DATE="$(date)" git commit --amend --no-edit --
 alias gps="git push"                                                                            # Push changes
 alias gpso="git push origin"                                                                    # Push to origin
 alias gpsof="git push origin --force-with-lease"                                                # Push to origin, force with lease
+alias gpsd="git push dokku"                                                                     # Push to dokku
 
 ## Inspect repository
 
