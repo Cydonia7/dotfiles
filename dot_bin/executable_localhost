@@ -1,0 +1,158 @@
+#!/bin/bash
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CADDYFILE="$SCRIPT_DIR/.Caddyfile"
+
+# Ensure Caddyfile exists
+if [ ! -f "$CADDYFILE" ]; then
+  touch "$CADDYFILE"
+fi
+
+add_subdomain() {
+  local subdomain=$1
+  local port=$2
+
+  # Check if subdomain already exists
+  if grep -q "^$subdomain\\.localhost {" "$CADDYFILE" 2>/dev/null; then
+    echo "Error: Configuration for $subdomain.localhost already exists"
+    return 1
+  fi
+
+  # Check if port is already in use
+  local existing_subdomain=$(grep -B1 "reverse_proxy localhost:$port" "$CADDYFILE" 2>/dev/null | grep -o '[^ ]*\.localhost' | sed 's/\.localhost//')
+  if [ -n "$existing_subdomain" ]; then
+    echo "Warning: Port $port is already used by $existing_subdomain.localhost"
+    read -p "Continue anyway? (y/N) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      return 1
+    fi
+  fi
+
+  cat >>$CADDYFILE <<EOF
+
+$subdomain.localhost {
+    reverse_proxy localhost:$port
+    tls internal
+    encode gzip zstd
+}
+
+EOF
+  echo "✓ Added configuration for $subdomain.localhost pointing to localhost:$port"
+}
+
+remove_by_name() {
+  local subdomain=$1
+
+  if grep -q "^$subdomain\.localhost {" "$CADDYFILE" 2>/dev/null; then
+    sed -i "/^$subdomain\.localhost {/,/^}/d" $CADDYFILE
+    echo "✓ Removed configuration for $subdomain.localhost"
+  else
+    echo "Error: No configuration found for $subdomain.localhost"
+    return 1
+  fi
+}
+
+remove_by_port() {
+  local port=$1
+  local subdomain
+
+  # Find subdomain matching this port
+  subdomain=$(grep -B1 "reverse_proxy localhost:$port" $CADDYFILE | grep -o '[^ ]*\.localhost' | sed 's/\.localhost//')
+
+  if [ -n "$subdomain" ]; then
+    remove_by_name "$subdomain"
+  else
+    echo "Error: No configuration found for port $port"
+    return 1
+  fi
+}
+
+check_status() {
+  # Check if our specific Caddy instance is running
+  if pgrep -f "caddy.*--config.*$CADDYFILE" >/dev/null || pgrep -f "caddy start.*--config.*$CADDYFILE" >/dev/null; then
+    echo "✓ Caddy is running with config: $CADDYFILE"
+    echo ""
+    echo "Active subdomains:"
+    grep -E "^[^ ]+\.localhost {" "$CADDYFILE" | sed 's/ {$//' | sed 's/^/  - /'
+  else
+    echo "✗ Caddy is not running for localhost subdomains"
+    echo "  (Note: This doesn't check the file-server instance on port 45000)"
+  fi
+}
+
+reload_caddy() {
+  # Check if our specific Caddy instance is running (not the file-server one)
+  if pgrep -f "caddy.*--config.*$CADDYFILE" >/dev/null || pgrep -f "caddy start.*--config.*$CADDYFILE" >/dev/null; then
+    echo "Reloading Caddy configuration..."
+    sudo caddy reload --config "$CADDYFILE"
+  else
+    echo "Starting Caddy..."
+    sudo caddy start --config "$CADDYFILE"
+  fi
+}
+
+validate_caddy() {
+  echo "Validating Caddyfile syntax..."
+  if sudo caddy validate --config "$CADDYFILE" 2>&1; then
+    echo "✓ Configuration is valid"
+  else
+    echo "✗ Configuration has errors"
+    return 1
+  fi
+}
+
+case "$1" in
+add)
+  if [ $# -ne 3 ]; then
+    echo "Usage: $(basename $0) add <subdomain> <port>"
+    exit 1
+  fi
+  add_subdomain "$2" "$3"
+  reload_caddy
+  ;;
+remove)
+  if [ $# -ne 2 ]; then
+    echo "Usage: $(basename $0) remove <subdomain or port>"
+    exit 1
+  fi
+  # Check if the argument is a number (port) or string (subdomain)
+  if [[ "$2" =~ ^[0-9]+$ ]]; then
+    remove_by_port "$2"
+  else
+    remove_by_name "$2"
+  fi
+  reload_caddy
+  ;;
+reload)
+  reload_caddy
+  ;;
+list)
+  echo "Current Caddyfile configuration:"
+  echo "================================"
+  cat $CADDYFILE
+  ;;
+status)
+  check_status
+  ;;
+validate)
+  validate_caddy
+  ;;
+*)
+  echo "Usage: $(basename $0) add <subdomain> <port>"
+  echo "       $(basename $0) remove <subdomain or port>"
+  echo "       $(basename $0) reload"
+  echo "       $(basename $0) status"
+  echo "       $(basename $0) list"
+  echo "       $(basename $0) validate"
+  echo ""
+  echo "Commands:"
+  echo "  add      - Add a new subdomain configuration"
+  echo "  remove   - Remove a subdomain by name or port"
+  echo "  reload   - Reload Caddy configuration"
+  echo "  status   - Check if Caddy is running and list active subdomains"
+  echo "  list     - Show the raw Caddyfile configuration"
+  echo "  validate - Validate the Caddyfile syntax"
+  exit 1
+  ;;
+esac
