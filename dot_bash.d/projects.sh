@@ -19,6 +19,48 @@ alias ldrpp="APP_CONTEXT=preprod ldr"
 alias ldrs="APP_CONTEXT=tdf-staging ldr"
 alias ldrd="APP_CONTEXT=tdf-dev ldr"
 
+# Lycra deploy run choose - interactive context selection with gum
+ldrc() {
+  # Check if gum is available, install if not
+  if ! command -v gum &> /dev/null; then
+    echo "gum not found, installing..."
+    if command -v go &> /dev/null; then
+      go install github.com/charmbracelet/gum@latest
+      # Add Go bin to PATH if not already there
+      if [[ ":$PATH:" != *":$HOME/go/bin:"* ]]; then
+        export PATH="$HOME/go/bin:$PATH"
+      fi
+    else
+      echo "Error: Go is not installed. Please install Go first to use ldrc."
+      return 1
+    fi
+    
+    # Check again after installation
+    if ! command -v gum &> /dev/null; then
+      echo "Error: Failed to install gum. Please install it manually."
+      return 1
+    fi
+  fi
+  
+  # Get available contexts
+  local contexts=("prod" "preprod" "tdf-staging" "tdf-dev")
+  
+  # Use gum choose to select contexts (multi-select with no limit)
+  local selected_contexts=$(printf '%s\n' "${contexts[@]}" | gum choose --no-limit)
+  
+  # Exit if no selection was made
+  if [ -z "$selected_contexts" ]; then
+    echo "No contexts selected. Exiting."
+    return 1
+  fi
+  
+  # Convert newline-separated selections to comma-separated
+  local comma_separated=$(echo "$selected_contexts" | tr '\n' ',' | sed 's/,$//')
+  
+  # Run the command with the selected contexts
+  APP_CONTEXT="$comma_separated" ldr "$@"
+}
+
 _ldr_completion() {
   local cur=${COMP_WORDS[COMP_CWORD]}
   local prev=${COMP_WORDS[COMP_CWORD - 1]}
@@ -66,3 +108,4 @@ complete -F _ldr_completion ldrp
 complete -F _ldr_completion ldrpp
 complete -F _ldr_completion ldrs
 complete -F _ldr_completion ldrd
+complete -F _ldr_completion ldrc
