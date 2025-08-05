@@ -11,3 +11,6 @@ vcenter() {
                 printf "%*s\n", int((cols + length(buf[i])) / 2), buf[i]
         }'
 }
+
+# Actually call the function
+vcenter
