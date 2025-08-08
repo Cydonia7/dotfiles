@@ -2,7 +2,7 @@
 alias lh="bash $HOME/.bin/localhost"
 
 # Lycra
-alias zla="cd /home/cydo/Projects/hiway/lycra"
+alias zl="cd /home/cydo/Projects/hiway/lycra"
 alias zla="cd /home/cydo/Projects/hiway/lycra/application"
 alias zld="cd /home/cydo/Projects/hiway/lycra/infrastructure/deploy"
 
