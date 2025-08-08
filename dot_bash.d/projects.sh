@@ -2,6 +2,7 @@
 alias lh="bash $HOME/.bin/localhost"
 
 # Lycra
+alias zla="cd /home/cydo/Projects/hiway/lycra"
 alias zla="cd /home/cydo/Projects/hiway/lycra/application"
 alias zld="cd /home/cydo/Projects/hiway/lycra/infrastructure/deploy"
 
@@ -22,9 +23,9 @@ alias ldrd="APP_CONTEXT=tdf-dev ldr"
 # Lycra deploy run choose - interactive context selection with gum
 ldrc() {
   # Check if gum is available, install if not
-  if ! command -v gum &> /dev/null; then
+  if ! command -v gum &>/dev/null; then
     echo "gum not found, installing..."
-    if command -v go &> /dev/null; then
+    if command -v go &>/dev/null; then
       go install github.com/charmbracelet/gum@latest
       # Add Go bin to PATH if not already there
       if [[ ":$PATH:" != *":$HOME/go/bin:"* ]]; then
@@ -34,29 +35,29 @@ ldrc() {
       echo "Error: Go is not installed. Please install Go first to use ldrc."
       return 1
     fi
-    
+
     # Check again after installation
-    if ! command -v gum &> /dev/null; then
+    if ! command -v gum &>/dev/null; then
       echo "Error: Failed to install gum. Please install it manually."
       return 1
     fi
   fi
-  
+
   # Get available contexts
   local contexts=("prod" "preprod" "tdf-staging" "tdf-dev")
-  
+
   # Use gum choose to select contexts (multi-select with no limit)
   local selected_contexts=$(printf '%s\n' "${contexts[@]}" | gum choose --no-limit)
-  
+
   # Exit if no selection was made
   if [ -z "$selected_contexts" ]; then
     echo "No contexts selected. Exiting."
     return 1
   fi
-  
+
   # Convert newline-separated selections to comma-separated
   local comma_separated=$(echo "$selected_contexts" | tr '\n' ',' | sed 's/,$//')
-  
+
   # Run the command with the selected contexts
   APP_CONTEXT="$comma_separated" ldr "$@"
 }
