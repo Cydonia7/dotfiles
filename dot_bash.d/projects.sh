@@ -119,10 +119,9 @@ complete -F _ldr_completion ldrc
 
 # Rebase all branches
 rab() {
-  # Rebase toutes les branches locales dont la pointe est un ancêtre de la branche courante,
+  # Rebase toutes les branches locales qui n'intègrent pas encore la branche courante,
   # en les rebasant sur la branche courante, puis push --force-with-lease.
 
-  # Sécurité : être dans un repo git
   if ! git rev-parse --is-inside-work-tree &>/dev/null; then
     echo "Pas dans un dépôt git."
     return 1
@@ -131,26 +130,24 @@ rab() {
   local cur
   cur=$(git rev-parse --abbrev-ref HEAD) || return 1
 
-  # Liste des branches locales candidates : ancêtres de HEAD (sauf HEAD)
+  # Trouver les branches locales qui N'ont PAS encore la branche courante dans leur historique
   mapfile -t _all_branches < <(git for-each-ref --format='%(refname:short)' refs/heads/)
   local candidates=()
   for b in "${_all_branches[@]}"; do
     [[ "$b" == "$cur" ]] && continue
-    # Si la pointe de $b est ancêtre de la branche courante
-    if git merge-base --is-ancestor "$(git rev-parse "$b")" "$cur"; then
+    # si la branche courante N'est PAS ancêtre de b, b a besoin d'un rebase
+    if ! git merge-base --is-ancestor "$cur" "$b"; then
       candidates+=("$b")
     fi
   done
 
   if ((${#candidates[@]} == 0)); then
-    echo "Aucune branche locale ne pointe vers un ancêtre de '$cur'."
+    echo "Aucune branche à rebaser sur '$cur'."
     return 0
   fi
 
-  # S'assure que gum est là
   ensure_gum || return 1
 
-  # Pré-sélectionne tout par défaut dans gum
   local selected_flags=()
   for b in "${candidates[@]}"; do
     selected_flags+=(--selected "$b")
@@ -163,11 +160,9 @@ rab() {
     return 1
   fi
 
-  # Pour le résumé final
   local ok_list=()
   local fail_list=()
 
-  # Rebase chaque branche sélectionnée sur la branche courante
   while IFS= read -r branch; do
     [[ -z "$branch" ]] && continue
     echo
@@ -193,7 +188,6 @@ rab() {
     fi
   done <<<"$selection"
 
-  # Retour sur la branche d'origine
   git checkout "$cur" &>/dev/null || true
 
   echo
