@@ -1,6 +1,30 @@
 # Localhost helper
 alias lh="bash $HOME/.bin/localhost"
 
+ensure_gum() {
+  # Vérifie/installe gum (réutilisable)
+  if command -v gum &>/dev/null; then
+    return 0
+  fi
+
+  echo "gum introuvable, installation…"
+  if command -v go &>/dev/null; then
+    go install github.com/charmbracelet/gum@latest
+    # Ajoute $HOME/go/bin au PATH si besoin (nouvelle session conseillée)
+    if [[ ":$PATH:" != *":$HOME/go/bin:"* ]]; then
+      export PATH="$HOME/go/bin:$PATH"
+    fi
+  else
+    echo "Erreur : Go n'est pas installé. Installe Go pour utiliser gum."
+    return 1
+  fi
+
+  if ! command -v gum &>/dev/null; then
+    echo "Erreur : échec de l'installation de gum. Installe-le manuellement."
+    return 1
+  fi
+}
+
 # Lycra
 alias zl="cd /home/cydo/Projects/hiway/lycra"
 alias zla="cd /home/cydo/Projects/hiway/lycra/application"
@@ -23,26 +47,7 @@ alias ldrar="ldra deploy -f same_branch"
 
 # Lycra deploy run choose - interactive context selection with gum
 ldrc() {
-  # Check if gum is available, install if not
-  if ! command -v gum &>/dev/null; then
-    echo "gum not found, installing..."
-    if command -v go &>/dev/null; then
-      go install github.com/charmbracelet/gum@latest
-      # Add Go bin to PATH if not already there
-      if [[ ":$PATH:" != *":$HOME/go/bin:"* ]]; then
-        export PATH="$HOME/go/bin:$PATH"
-      fi
-    else
-      echo "Error: Go is not installed. Please install Go first to use ldrc."
-      return 1
-    fi
-
-    # Check again after installation
-    if ! command -v gum &>/dev/null; then
-      echo "Error: Failed to install gum. Please install it manually."
-      return 1
-    fi
-  fi
+  ensure_gum || return 1
 
   # Get available contexts
   local contexts=("prod" "preprod" "tdf-staging" "tdf-dev")
@@ -111,3 +116,88 @@ complete -F _ldr_completion ldrpp
 complete -F _ldr_completion ldrs
 complete -F _ldr_completion ldrd
 complete -F _ldr_completion ldrc
+
+# Rebase all branches
+rab() {
+  # Rebase toutes les branches locales dont la pointe est un ancêtre de la branche courante,
+  # en les rebasant sur la branche courante, puis push --force-with-lease.
+
+  # Sécurité : être dans un repo git
+  if ! git rev-parse --is-inside-work-tree &>/dev/null; then
+    echo "Pas dans un dépôt git."
+    return 1
+  fi
+
+  local cur
+  cur=$(git rev-parse --abbrev-ref HEAD) || return 1
+
+  # Liste des branches locales candidates : ancêtres de HEAD (sauf HEAD)
+  mapfile -t _all_branches < <(git for-each-ref --format='%(refname:short)' refs/heads/)
+  local candidates=()
+  for b in "${_all_branches[@]}"; do
+    [[ "$b" == "$cur" ]] && continue
+    # Si la pointe de $b est ancêtre de la branche courante
+    if git merge-base --is-ancestor "$(git rev-parse "$b")" "$cur"; then
+      candidates+=("$b")
+    fi
+  done
+
+  if ((${#candidates[@]} == 0)); then
+    echo "Aucune branche locale ne pointe vers un ancêtre de '$cur'."
+    return 0
+  fi
+
+  # S'assure que gum est là
+  ensure_gum || return 1
+
+  # Pré-sélectionne tout par défaut dans gum
+  local selected_flags=()
+  for b in "${candidates[@]}"; do
+    selected_flags+=(--selected "$b")
+  done
+
+  local selection
+  selection=$(printf '%s\n' "${candidates[@]}" | gum choose --no-limit "${selected_flags[@]}")
+  if [[ -z "$selection" ]]; then
+    echo "Rien de sélectionné, abandon."
+    return 1
+  fi
+
+  # Pour le résumé final
+  local ok_list=()
+  local fail_list=()
+
+  # Rebase chaque branche sélectionnée sur la branche courante
+  while IFS= read -r branch; do
+    [[ -z "$branch" ]] && continue
+    echo
+    echo "==> Rebase '$branch' sur '$cur'…"
+    if ! git checkout "$branch"; then
+      echo "   ⚠️  Impossible de se placer sur '$branch'."
+      fail_list+=("$branch (checkout)")
+      continue
+    fi
+
+    if git rebase "$cur"; then
+      if git push --force-with-lease origin "$branch"; then
+        echo "   ✅ Rebasée et poussée : $branch"
+        ok_list+=("$branch")
+      else
+        echo "   ⚠️  Push échoué pour '$branch'."
+        fail_list+=("$branch (push)")
+      fi
+    else
+      echo "   ⚠️  Conflit détecté sur '$branch'. Rebase abandonné."
+      git rebase --abort || true
+      fail_list+=("$branch (conflit)")
+    fi
+  done <<<"$selection"
+
+  # Retour sur la branche d'origine
+  git checkout "$cur" &>/dev/null || true
+
+  echo
+  echo "===== Résumé ====="
+  ((${#ok_list[@]})) && echo "✔️  Rebasées & poussées : ${ok_list[*]}"
+  ((${#fail_list[@]})) && echo "❌ À traiter manuellement : ${fail_list[*]}"
+}
