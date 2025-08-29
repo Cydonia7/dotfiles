@@ -73,7 +73,7 @@ floating_modifier $mod
 # start a terminal
 bindsym $mod+Return exec kitty
 
-bindsym $mod+c exec firefox
+bindsym $mod+c exec brave
 bindsym $mod+shift+c exec google-chrome-stable
 
 bindsym $mod+i exec {{ .chezmoi.homeDir }}/.local/bin/hints
@@ -219,7 +219,7 @@ mode "(S)uspend, (L)ogout, (R)eboot, (P)oweroff" {
 
 bindsym $mod+p exec rofi -show p -modi p:$HOME/.config/rofi/rofi_power_menu
 
-# Prevent firefox from taking focus when opening links
+# Prevent brave from taking focus when opening links
 focus_on_window_activation urgent
 
 for_window [class=".*"] title_format "   %title"
