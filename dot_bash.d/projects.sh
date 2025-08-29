@@ -44,6 +44,7 @@ alias ldrpp="APP_CONTEXT=preprod ldr"
 alias ldrs="APP_CONTEXT=tdf-staging ldr"
 alias ldrd="APP_CONTEXT=tdf-dev ldr"
 alias ldrar="ldra deploy -f same_branch"
+alias rabr="rab && ldrar"
 
 # Lycra deploy run choose - interactive context selection with gum
 ldrc() {
