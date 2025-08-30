@@ -121,6 +121,7 @@ alias gps="git push"                                                            
 alias gpso="git push origin"                                                                    # Push to origin
 alias gpsof="git push origin --force-with-lease"                                                # Push to origin, force with lease
 alias gpsd="git push dokku"                                                                     # Push to dokku
+alias gpsod="gpso && gpsd"                                                                      # Push to origin & dokku
 
 ## Inspect repository
 
