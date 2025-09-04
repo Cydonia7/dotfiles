@@ -63,9 +63,9 @@ bindsym XF86AudioPrev exec "playerctl --all-players previous"
 bindsym XF86AudioNext exec "playerctl --all-players next"
 
 # Screenshots
-bindsym Print exec maim -s -u | satty --filename - -o Images/screenshot-$(date '+%Y%m%d-%H:%M:%S').png
-bindsym $mod+Shift+P exec maim -s -u | satty --filename - -o Images/screenshot-$(date '+%Y%m%d-%H:%M:%S').png
-bindsym $mod+Shift+Mod1+P exec maim -d 10 -s -u | satty --filename - -o Images/screenshot-$(date '+%Y%m%d-%H:%M:%S').png
+bindsym Print exec maim -s -u | satty --right-click-copy --font-family Inter --filename - -o Images/screenshot-$(date '+%Y%m%d-%H:%M:%S').png
+bindsym $mod+Shift+P exec maim -s -u | satty --right-click-copy --font-family Inter --filename - -o Images/screenshot-$(date '+%Y%m%d-%H:%M:%S').png
+bindsym $mod+Shift+Mod1+P exec maim -d 10 -s -u | satty --right-click-copy --font-family Inter --filename - -o Images/screenshot-$(date '+%Y%m%d-%H:%M:%S').png
 
 # Use Mouse+$mod to drag floating windows to their wanted position
 floating_modifier $mod
