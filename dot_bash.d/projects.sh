@@ -120,16 +120,49 @@ complete -F _ldr_completion ldrc
 
 # Rebase all branches
 rab() {
-  # Rebase toutes les branches locales qui n'intègrent pas encore la branche courante,
-  # en les rebasant sur la branche courante, puis push --force-with-lease.
+  # Rebase toutes les branches locales qui n'intègrent pas encore la branche spécifiée (ou master/main),
+  # en les rebasant sur cette branche, puis push --force-with-lease.
 
   if ! git rev-parse --is-inside-work-tree &>/dev/null; then
     echo "Pas dans un dépôt git."
     return 1
   fi
 
-  local cur
-  cur=$(git rev-parse --abbrev-ref HEAD) || return 1
+  local target_branch="$1"
+  
+  # Si aucune branche spécifiée, utiliser master ou main
+  if [[ -z "$target_branch" ]]; then
+    if git rev-parse --verify master &>/dev/null; then
+      target_branch="master"
+    elif git rev-parse --verify main &>/dev/null; then
+      target_branch="main"
+    else
+      echo "Erreur : aucune branche 'master' ou 'main' trouvée."
+      echo "Usage : rab [branche]"
+      return 1
+    fi
+  else
+    # Vérifier que la branche spécifiée existe
+    if ! git rev-parse --verify "$target_branch" &>/dev/null; then
+      echo "Erreur : la branche '$target_branch' n'existe pas."
+      return 1
+    fi
+  fi
+  
+  local cur="$target_branch"
+  
+  # Sauvegarder la branche actuelle pour y revenir après
+  local original_branch
+  original_branch=$(git rev-parse --abbrev-ref HEAD) || return 1
+  
+  # Checkout de la branche cible pour s'assurer d'avoir son état le plus récent
+  if [[ "$original_branch" != "$target_branch" ]]; then
+    echo "Checkout de la branche '$target_branch'..."
+    if ! git checkout "$target_branch"; then
+      echo "Erreur : impossible de checkout la branche '$target_branch'."
+      return 1
+    fi
+  fi
 
   # Trouver les branches locales qui N'ont PAS encore la branche courante dans leur historique
   mapfile -t _all_branches < <(git for-each-ref --format='%(refname:short)' refs/heads/)
@@ -144,6 +177,7 @@ rab() {
 
   if ((${#candidates[@]} == 0)); then
     echo "Aucune branche à rebaser sur '$cur'."
+    git checkout "$original_branch" &>/dev/null || true
     return 0
   fi
 
@@ -158,6 +192,7 @@ rab() {
   selection=$(printf '%s\n' "${candidates[@]}" | gum choose --no-limit "${selected_flags[@]}")
   if [[ -z "$selection" ]]; then
     echo "Rien de sélectionné, abandon."
+    git checkout "$original_branch" &>/dev/null || true
     return 1
   fi
 
@@ -189,7 +224,8 @@ rab() {
     fi
   done <<<"$selection"
 
-  git checkout "$cur" &>/dev/null || true
+  # Retourner à la branche d'origine
+  git checkout "$original_branch" &>/dev/null || true
 
   echo
   echo "===== Résumé ====="
