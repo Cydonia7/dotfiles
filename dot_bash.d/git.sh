@@ -133,7 +133,7 @@ alias gda="git --no-pager diff HEAD && git ls-files --others --exclude-standard 
 alias gsh="git show"                                                                                                                                                        # Show commit
 alias gshh="git show HEAD"                                                                                                                                                  # Show HEAD
 alias gl="git log --decorate-refs-exclude='*/HEAD' --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit" # Shows history
-alias gla="gl --all"
+alias gla="git log --all --graph --abbrev-commit --decorate --pretty=format:'%Cred%h%Creset %C(bold yellow)%d%Creset %s %Cgreen(%ar)%Creset %C(blue)<%an>%Creset' --color=always | sed -E 's/\(HEAD -> ([^,)]+), origin\/\1/\(CURRENTBRANCH:\1/g; s/\(HEAD -> ([^,)]+)/\(CURRENTLOCAL:\1/g; s/, lycra-[^,)]+\/master//g; s/, [^,)]+\/HEAD//g; s/origin\/([^,) ]+), \1/↕ \1/g; s/\(origin\//↑ /g; s/\(CURRENTBRANCH:([^),]+)/PURPLEBRANCH:↕ \1:ENDPURPLE/g; s/\(CURRENTLOCAL:([^),]+)/PURPLEBRANCH:\1:ENDPURPLE/g; s/\(([^)]+)\)/\1/g; s/\)//g' | awk '{gsub(/PURPLEBRANCH:/,\"\033[1;35m\");gsub(/:ENDPURPLE/,\"\033[1;33m\");print}' | less -R"
 alias gsp='git standup' # Shows my recent commits
 
 ## Branch operations
