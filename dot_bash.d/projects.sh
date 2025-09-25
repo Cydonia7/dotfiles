@@ -236,6 +236,7 @@ rab() {
 
   local ok_list=()
   local fail_list=()
+  local created_branches=()  # Garder trace des branches créées temporairement
 
   while IFS= read -r branch; do
     [[ -z "$branch" ]] && continue
@@ -251,12 +252,14 @@ rab() {
     # Si la branche n'existe pas localement, essayer de créer depuis origin
     if [[ $local_branch_exists -eq 0 ]]; then
       if git rev-parse --verify "origin/$branch" &>/dev/null; then
-        echo "   Création de la branche locale '$branch' depuis 'origin/$branch'..."
+        echo "   Création temporaire de la branche locale '$branch' depuis 'origin/$branch'..."
         if ! git checkout -b "$branch" "origin/$branch"; then
           echo "   ⚠️  Impossible de créer la branche locale '$branch'."
           fail_list+=("$branch (création)")
           continue
         fi
+        # Marquer cette branche comme créée temporairement
+        created_branches+=("$branch")
       else
         echo "   ⚠️  Branche '$branch' introuvable."
         fail_list+=("$branch (introuvable)")
@@ -287,6 +290,25 @@ rab() {
 
   # Retourner à la branche d'origine
   git checkout "$original_branch" &>/dev/null || true
+
+  # Nettoyer les branches créées temporairement
+  if ((${#created_branches[@]} > 0)); then
+    echo
+    echo "Nettoyage des branches créées temporairement..."
+    for branch in "${created_branches[@]}"; do
+      # S'assurer qu'on n'est pas sur la branche à supprimer
+      if [[ "$(git rev-parse --abbrev-ref HEAD)" == "$branch" ]]; then
+        git checkout "$original_branch" &>/dev/null || git checkout "$target_branch" &>/dev/null || true
+      fi
+
+      # Supprimer la branche locale
+      if git branch -D "$branch" &>/dev/null; then
+        echo "   🧹 Branche temporaire '$branch' supprimée"
+      else
+        echo "   ⚠️  Impossible de supprimer la branche temporaire '$branch'"
+      fi
+    done
+  fi
 
   echo
   echo "===== Résumé ====="
