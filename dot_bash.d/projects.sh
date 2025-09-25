@@ -168,48 +168,48 @@ rab() {
   # D'abord récupérer les branches locales
   mapfile -t _local_branches < <(git for-each-ref --format='%(refname:short)' refs/heads/)
 
-  # Ensuite récupérer les branches remote (en enlevant le préfixe origin/)
-  mapfile -t _remote_branches < <(git for-each-ref --format='%(refname:short)' refs/remotes/origin/ | sed 's|^origin/||' | grep -v '^HEAD$')
+  # Ensuite récupérer les branches remote (format origin/branch-name)
+  mapfile -t _remote_branches < <(git for-each-ref --format='%(refname:short)' refs/remotes/origin/ | grep -v '^origin$' | grep -v '/HEAD')
 
-  # Combiner et dédupliquer les branches
-  local all_branches=()
-  local seen_branches=()
-
+  # Créer un set des branches locales pour déduplication
+  local local_branch_set=()
   for b in "${_local_branches[@]}"; do
-    all_branches+=("$b")
-    seen_branches+=("$b")
-  done
-
-  for b in "${_remote_branches[@]}"; do
-    # Ajouter seulement si pas déjà vue (éviter les doublons)
-    local already_seen=0
-    for seen in "${seen_branches[@]}"; do
-      if [[ "$seen" == "$b" ]]; then
-        already_seen=1
-        break
-      fi
-    done
-    if [[ $already_seen -eq 0 ]]; then
-      all_branches+=("origin/$b")
-    fi
+    local_branch_set+=("$b")
   done
 
   local candidates=()
-  for b in "${all_branches[@]}"; do
-    [[ "$b" == "$cur" ]] && continue
-    [[ "$b" == "origin/$cur" ]] && continue
 
-    # Pour les branches remote, on doit utiliser le nom complet avec origin/
-    local branch_to_check="$b"
-    if [[ "$b" == origin/* ]]; then
-      branch_to_check="$b"
-    fi
+  # Traiter les branches locales
+  for b in "${_local_branches[@]}"; do
+    [[ "$b" == "$cur" ]] && continue
 
     # si la branche courante N'est PAS ancêtre de b, b a besoin d'un rebase
-    if ! git merge-base --is-ancestor "$cur" "$branch_to_check" 2>/dev/null; then
-      # Pour l'affichage, on simplifie le nom (enlève origin/)
-      local display_name="${b#origin/}"
-      candidates+=("$display_name")
+    if ! git merge-base --is-ancestor "$cur" "$b" 2>/dev/null; then
+      candidates+=("$b")
+    fi
+  done
+
+  # Traiter les branches remote qui n'ont pas de version locale
+  for remote_branch in "${_remote_branches[@]}"; do
+    # Extraire le nom de la branche sans le préfixe origin/
+    local branch_name="${remote_branch#origin/}"
+
+    [[ "$branch_name" == "$cur" ]] && continue
+
+    # Vérifier si cette branche existe déjà localement
+    local exists_locally=0
+    for local_b in "${local_branch_set[@]}"; do
+      if [[ "$local_b" == "$branch_name" ]]; then
+        exists_locally=1
+        break
+      fi
+    done
+
+    # Si elle n'existe pas localement, vérifier si elle a besoin d'un rebase
+    if [[ $exists_locally -eq 0 ]]; then
+      if ! git merge-base --is-ancestor "$cur" "$remote_branch" 2>/dev/null; then
+        candidates+=("$branch_name")
+      fi
     fi
   done
 
