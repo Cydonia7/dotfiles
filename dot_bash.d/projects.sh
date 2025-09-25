@@ -164,14 +164,52 @@ rab() {
     fi
   fi
 
-  # Trouver les branches locales qui N'ont PAS encore la branche courante dans leur historique
-  mapfile -t _all_branches < <(git for-each-ref --format='%(refname:short)' refs/heads/)
+  # Trouver les branches locales ET remote qui N'ont PAS encore la branche courante dans leur historique
+  # D'abord récupérer les branches locales
+  mapfile -t _local_branches < <(git for-each-ref --format='%(refname:short)' refs/heads/)
+
+  # Ensuite récupérer les branches remote (en enlevant le préfixe origin/)
+  mapfile -t _remote_branches < <(git for-each-ref --format='%(refname:short)' refs/remotes/origin/ | sed 's|^origin/||' | grep -v '^HEAD$')
+
+  # Combiner et dédupliquer les branches
+  local all_branches=()
+  local seen_branches=()
+
+  for b in "${_local_branches[@]}"; do
+    all_branches+=("$b")
+    seen_branches+=("$b")
+  done
+
+  for b in "${_remote_branches[@]}"; do
+    # Ajouter seulement si pas déjà vue (éviter les doublons)
+    local already_seen=0
+    for seen in "${seen_branches[@]}"; do
+      if [[ "$seen" == "$b" ]]; then
+        already_seen=1
+        break
+      fi
+    done
+    if [[ $already_seen -eq 0 ]]; then
+      all_branches+=("origin/$b")
+    fi
+  done
+
   local candidates=()
-  for b in "${_all_branches[@]}"; do
+  for b in "${all_branches[@]}"; do
     [[ "$b" == "$cur" ]] && continue
+    [[ "$b" == "origin/$cur" ]] && continue
+
+    # Pour les branches remote, on doit utiliser le nom complet avec origin/
+    local branch_to_check="$b"
+    if [[ "$b" == origin/* ]]; then
+      branch_to_check="$b"
+    fi
+
     # si la branche courante N'est PAS ancêtre de b, b a besoin d'un rebase
-    if ! git merge-base --is-ancestor "$cur" "$b"; then
-      candidates+=("$b")
+    if ! git merge-base --is-ancestor "$cur" "$branch_to_check" 2>/dev/null; then
+      # Pour l'affichage, on simplifie le nom (enlève origin/)
+      local display_name="${b#origin/}"
+      candidates+=("$display_name")
     fi
   done
 
@@ -203,10 +241,33 @@ rab() {
     [[ -z "$branch" ]] && continue
     echo
     echo "==> Rebase '$branch' sur '$cur'…"
-    if ! git checkout "$branch"; then
-      echo "   ⚠️  Impossible de se placer sur '$branch'."
-      fail_list+=("$branch (checkout)")
-      continue
+
+    # Vérifier si la branche existe localement
+    local local_branch_exists=0
+    if git rev-parse --verify "$branch" &>/dev/null; then
+      local_branch_exists=1
+    fi
+
+    # Si la branche n'existe pas localement, essayer de créer depuis origin
+    if [[ $local_branch_exists -eq 0 ]]; then
+      if git rev-parse --verify "origin/$branch" &>/dev/null; then
+        echo "   Création de la branche locale '$branch' depuis 'origin/$branch'..."
+        if ! git checkout -b "$branch" "origin/$branch"; then
+          echo "   ⚠️  Impossible de créer la branche locale '$branch'."
+          fail_list+=("$branch (création)")
+          continue
+        fi
+      else
+        echo "   ⚠️  Branche '$branch' introuvable."
+        fail_list+=("$branch (introuvable)")
+        continue
+      fi
+    else
+      if ! git checkout "$branch"; then
+        echo "   ⚠️  Impossible de se placer sur '$branch'."
+        fail_list+=("$branch (checkout)")
+        continue
+      fi
     fi
 
     if git rebase "$cur"; then
