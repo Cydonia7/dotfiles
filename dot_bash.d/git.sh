@@ -125,6 +125,79 @@ alias gpsod="gpso && gpsd"                                                      
 
 ## Inspect repository
 
+# Format git log decorations with intelligent deduplication
+format_git_decorations() {
+  perl -pe '
+    if (/\x1b\[1;33m \((.*?)\)\x1b\[m/) {
+      my $refs = $1;
+      my @parts = split /, /, $refs;
+
+      my $head_branch = "";
+      my $origin_branch = "";
+      my $local_branch = "";
+      my @lycra_envs = ();
+
+      # Parse all ref components
+      foreach my $part (@parts) {
+        if ($part =~ /^HEAD -> (.+)$/) {
+          $head_branch = $1;
+        } elsif ($part =~ /^origin\/(.+)$/ && $1 ne 'HEAD') {
+          $origin_branch = $1 if !$origin_branch;
+        } elsif ($part =~ /^lycra-([^\/]+)\/master$/) {
+          push @lycra_envs, $1;
+        } elsif ($part !~ /\//) {
+          # Local branch name (no slashes)
+          $local_branch = $part;
+        }
+      }
+
+      # Skip other remote HEADs
+      @parts = grep { $_ !~ /\/HEAD$/ } @parts;
+
+      # Build output
+      my $output = "";
+      my $icon = "";
+      my $branch_name = "";
+
+      if ($head_branch) {
+        # Current branch (purple)
+        $branch_name = $head_branch;
+        if ($origin_branch && $origin_branch eq $head_branch) {
+          $icon = "↕";
+        }
+        $output = "\x1b[1;35m" . $icon . ($icon ? " " : "") . $branch_name . "\x1b[1;33m";
+      } else {
+        # Non-current branch (yellow)
+        if ($origin_branch && $local_branch) {
+          # Synced branch
+          $icon = "↕";
+          $branch_name = $local_branch;
+        } elsif ($origin_branch && !$local_branch) {
+          # Remote-only branch
+          $icon = "↑";
+          $branch_name = $origin_branch;
+        } elsif ($local_branch && !$origin_branch) {
+          # Local-only branch
+          $icon = "";
+          $branch_name = $local_branch;
+        }
+        $output = "\x1b[1;33m" . $icon . ($icon ? " " : "") . $branch_name;
+      }
+
+      # Add lycra environments (each underlined individually)
+      if (@lycra_envs) {
+        foreach my $env (@lycra_envs) {
+          $output .= " " . "\x1b[4;33m" . $env . "\x1b[24m\x1b[1;33m";
+        }
+      }
+
+      # Close color and replace the decoration
+      $output .= "\x1b[m";
+      s/\x1b\[1;33m \(.*?\)\x1b\[m/ $output/;
+    }
+  '
+}
+
 alias gs="git status"                                                                                                                                                       # Show status
 alias gd="git diff"                                                                                                                                                         # Show diff (unstaged files)
 alias gdc="git diff --cached"                                                                                                                                               # Show cached diff (staged files)
@@ -132,8 +205,8 @@ alias gdh="git diff HEAD"                                                       
 alias gda="git --no-pager diff HEAD && git ls-files --others --exclude-standard -z | xargs -0 -r -I{} git --no-pager diff --no-index /dev/null {}"                          # Shows all diff (untracked & unstaged & staged files)
 alias gsh="git show"                                                                                                                                                        # Show commit
 alias gshh="git show HEAD"                                                                                                                                                  # Show HEAD
-alias gl="git log --decorate-refs-exclude='*/HEAD' --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit" # Shows history
-alias gla="git log --all --graph --abbrev-commit --decorate --pretty=format:'%Cred%h%Creset %C(bold yellow)%d%Creset %s %Cgreen(%ar)%Creset %C(blue)<%an>%Creset' --color=always | sed -E 's/\(HEAD -> ([^,)]+), origin\/\1/\(CURRENTBRANCH:\1/g; s/\(HEAD -> ([^,)]+)/\(CURRENTLOCAL:\1/g; s/, lycra-[^,)]+\/master//g; s/, [^,)]+\/HEAD//g; s/origin\/([^,) ]+), \1/↕ \1/g; s/\(origin\//↑ /g; s/\(CURRENTBRANCH:([^),]+)/PURPLEBRANCH:↕ \1:ENDPURPLE/g; s/\(CURRENTLOCAL:([^),]+)/PURPLEBRANCH:\1:ENDPURPLE/g; s/\(([^)]+)\)/\1/g; s/\)//g' | awk '{gsub(/PURPLEBRANCH:/,\"\033[1;35m\");gsub(/:ENDPURPLE/,\"\033[1;33m\");print}' | less -R"
+alias gl="git log --graph --abbrev-commit --decorate --pretty=format:'%Cred%h%Creset %C(bold yellow)%d%Creset %s %Cgreen(%ar)%Creset %C(blue)<%an>%Creset' --color=always | format_git_decorations | less -R" # Shows history
+alias gla="git log --all --graph --abbrev-commit --decorate --pretty=format:'%Cred%h%Creset %C(bold yellow)%d%Creset %s %Cgreen(%ar)%Creset %C(blue)<%an>%Creset' --color=always | format_git_decorations | less -R"
 alias gsp='git standup' # Shows my recent commits
 
 ## Branch operations
