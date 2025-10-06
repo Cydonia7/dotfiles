@@ -9,24 +9,22 @@ IGNORE_FOLDERS=("Spam" "Corbeille" "Brouillons" "[Gmail]/All Mail" "[Gmail]/Tous
 # Loop through all Evolution mail databases
 for DB in "$DB_PATH"/*/folders.db; do
   if [ -f "$DB" ]; then
-    # Get the list of folder names from the "folders" table
-    FOLDERS=$(sqlite3 "$DB" "SELECT folder_name FROM folders;")
-
-    # Iterate through each folder and get the unread count
-    while read -r FOLDER; do
-      # Skip ignored folders
-      skip=0
-      for IGN in "${IGNORE_FOLDERS[@]}"; do
-        if [[ "$FOLDER" == *"$IGN"* ]]; then
-          skip=1
-          break
-        fi
-      done
-      if [ $skip -eq 0 ]; then
-        COUNT=$(sqlite3 "$DB" "SELECT SUM(1 - read) FROM \"$FOLDER\";")
-        UNREAD_COUNT=$((UNREAD_COUNT + COUNT))
+    # Build SQL WHERE clause to exclude ignored folders
+    WHERE_CLAUSE=""
+    for IGN in "${IGNORE_FOLDERS[@]}"; do
+      if [ -n "$WHERE_CLAUSE" ]; then
+        WHERE_CLAUSE="$WHERE_CLAUSE AND "
       fi
-    done <<<"$FOLDERS"
+      WHERE_CLAUSE="${WHERE_CLAUSE}folder_name NOT LIKE '%${IGN}%'"
+    done
+
+    # Get sum of unread_count from folders table, excluding ignored folders
+    COUNT=$(sqlite3 "$DB" "SELECT SUM(unread_count) FROM folders WHERE $WHERE_CLAUSE;")
+
+    # Handle null/empty results
+    if [ -n "$COUNT" ] && [ "$COUNT" != "" ]; then
+      UNREAD_COUNT=$((UNREAD_COUNT + COUNT))
+    fi
   fi
 done
 
