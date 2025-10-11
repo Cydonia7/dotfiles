@@ -37,12 +37,11 @@ cl() {
 
   # Options eza :
   # --color=always + --icons pour la mise en forme même via pipe
-  # --classify pour / après les dossiers
   # --grid pour colonnes
   # -U pas de tri ; --group-directories-first pratique
   # -d (IMPORTANT) liste les dossiers EUX-MÊMES, pas leur contenu
   local WIDTH="${COLUMNS:-$(tput cols 2>/dev/null || echo 120)}"
-  local EZA_OPTS=(--color=always --icons --classify --grid -U --group-directories-first -d --width="$WIDTH")
+  local EZA_OPTS=(--color=always --icons --grid -U --group-directories-first -d --width="$WIDTH")
 
   local LIMIT=200
 
