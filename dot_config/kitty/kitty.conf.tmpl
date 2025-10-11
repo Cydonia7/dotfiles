@@ -1,10 +1,13 @@
 include mocha.conf
 
-{{ if .hidpi }}
-font_size 13
-{{ else }}
-font_size 11
-{{ end }}
-font_family JetBrains Mono
-modify_font cell_height 110%
-modify_font cell_width 90%
+font_size {{ .kitty.fontSize }}
+
+font_family      family='{{ .kitty.font }}' style={{ .kitty.styleNormal }}
+bold_font        family='{{ .kitty.font }}' style={{ .kitty.styleBold }}
+italic_font      family='{{ .kitty.font }}' style={{ .kitty.styleItalic }}
+bold_italic_font family='{{ .kitty.font }}' style={{ .kitty.styleBoldItalic }}
+
+modify_font cell_height {{ .kitty.cellHeight }}
+modify_font cell_width {{ .kitty.cellWidth }}
+
+disable_ligatures always

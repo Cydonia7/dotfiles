@@ -2,3 +2,12 @@ hidpi: false
 laptop: false
 features:
   kemeo: false
+kitty:
+  font: "JetBrains Mono"
+  fontSize: 11
+  cellHeight: "110%"
+  cellWidth: "90%"
+  styleNormal: "Regular"
+  styleItalic: "Italic"
+  styleBold: "Bold"
+  styleBoldItalic: "Bold Italic"
