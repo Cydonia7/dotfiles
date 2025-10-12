@@ -121,7 +121,7 @@ get_font_families() {
 # Get available styles for a font
 get_font_styles() {
     local font_name=$1
-    fc-list "$font_name" : style | sed 's/,/\n/g' | sort -u | grep -v "^$"
+    fc-list "$font_name" : style | sed 's/:style=//g' | sed 's/,/\n/g' | sort -u | grep -v "^$"
 }
 
 # Display current configuration banner
