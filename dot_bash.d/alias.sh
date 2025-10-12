@@ -69,3 +69,6 @@ document_aliases_and_functions() {
 
 alias dh='document_aliases_and_functions "$HOME/.bash.d"' # Shows help for dotfiles
 
+## Kitty terminal
+alias ekf='kitty-font-picker' # Edit kitty font (interactive font picker)
+

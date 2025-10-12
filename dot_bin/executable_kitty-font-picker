@@ -1,0 +1,321 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# ============================================================================
+# Kitty Font Picker - Interactive font configuration utility
+# ============================================================================
+
+# Configuration
+CHEZMOI_CONFIG="${HOME}/.config/chezmoi/chezmoi.yaml"
+BACKUP_FILE="${CHEZMOI_CONFIG}.backup-$(date +%s)"
+TEMP_FILE=$(mktemp)
+
+# Colors
+readonly RED='\033[0;31m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[1;33m'
+readonly BLUE='\033[0;34m'
+readonly NC='\033[0m' # No Color
+
+# Cleanup function
+cleanup() {
+    local exit_code=$?
+    rm -f "$TEMP_FILE"
+
+    if [ $exit_code -ne 0 ]; then
+        echo -e "${RED}⚠️  Unexpected exit. Backup preserved at: ${BACKUP_FILE}${NC}"
+    fi
+}
+
+trap cleanup EXIT
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+log_info() {
+    echo -e "${BLUE}ℹ${NC} $*"
+}
+
+log_success() {
+    echo -e "${GREEN}✓${NC} $*"
+}
+
+log_warn() {
+    echo -e "${YELLOW}⚠${NC} $*"
+}
+
+log_error() {
+    echo -e "${RED}✗${NC} $*"
+}
+
+# Backup the original file
+create_backup() {
+    if [ ! -f "$CHEZMOI_CONFIG" ]; then
+        log_error "Chezmoi config file not found: $CHEZMOI_CONFIG"
+        exit 1
+    fi
+
+    cp "$CHEZMOI_CONFIG" "$BACKUP_FILE"
+    log_success "Backup created: $BACKUP_FILE"
+}
+
+# Restore from backup
+restore_backup() {
+    if [ -f "$BACKUP_FILE" ]; then
+        cp "$BACKUP_FILE" "$CHEZMOI_CONFIG"
+        log_success "Configuration restored from backup"
+        rm -f "$BACKUP_FILE"
+    fi
+}
+
+# Read YAML value (using jq-style yq)
+read_yaml_value() {
+    local key=$1
+    # Prepend "data." to access the data section in chezmoi.yaml
+    local jq_path=".data.${key}"
+    yq "$jq_path" "$CHEZMOI_CONFIG" 2>/dev/null | sed 's/"//g' || echo ""
+}
+
+# Write YAML value (using jq-style yq)
+write_yaml_value() {
+    local key=$1
+    local value=$2
+
+    # Prepend "data." to access the data section in chezmoi.yaml
+    local jq_path=".data.${key}"
+
+    # Use yq with --yaml-output and --in-place
+    yq --yaml-output --in-place "${jq_path} = \"${value}\"" "$CHEZMOI_CONFIG"
+}
+
+# Apply changes and reload kitty
+apply_and_reload() {
+    log_info "Applying changes..."
+
+    # Force apply chezmoi template (data changes don't auto-trigger)
+    if ! chezmoi apply --force ~/.config/kitty/kitty.conf 2>/dev/null; then
+        log_error "Failed to apply chezmoi configuration"
+        return 1
+    fi
+
+    # Reload kitty - SIGUSR1 triggers config reload
+    if pgrep -x kitty > /dev/null; then
+        pkill -SIGUSR1 kitty 2>/dev/null && log_success "Kitty configuration reloaded" || {
+            log_warn "Could not send reload signal"
+            log_info "Restart kitty to see changes"
+        }
+    else
+        log_warn "Kitty is not running - changes will apply on next start"
+    fi
+
+    sleep 0.3  # Brief pause for reload
+}
+
+# Get available font families
+get_font_families() {
+    fc-list : family | sort -u | sed 's/,.*$//' | grep -i "mono\|nerd\|code\|consol\|hack\|jetbrains\|fira\|source"
+}
+
+# Get available styles for a font
+get_font_styles() {
+    local font_name=$1
+    fc-list "$font_name" : style | sed 's/,/\n/g' | sort -u | grep -v "^$"
+}
+
+# Display current configuration banner
+show_banner() {
+    clear
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "         🎨 Kitty Font Picker"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+}
+
+# ============================================================================
+# Menu Functions
+# ============================================================================
+
+select_font_family() {
+    local current_font=$(read_yaml_value 'kitty.font')
+
+    echo -e "${BLUE}ℹ${NC} Loading fonts... (current: ${YELLOW}$current_font${NC})"
+    local fonts=$(get_font_families)
+
+    local selected_font=$(echo "$fonts" | gum filter \
+        --placeholder "Type to search..." \
+        --header "🔍 Select Font Family" \
+        --height 20 \
+        --prompt "❯ ")
+
+    if [ -n "$selected_font" ] && [ "$selected_font" != "$current_font" ]; then
+        write_yaml_value "kitty.font" "$selected_font"
+        echo -e "${GREEN}✓${NC} Font: ${YELLOW}$current_font${NC} → ${GREEN}$selected_font${NC}"
+        apply_and_reload
+    fi
+}
+
+select_font_style() {
+    local style_type=$1
+    local yaml_key=$2
+    local current_style=$(read_yaml_value "$yaml_key")
+    local current_font=$(read_yaml_value 'kitty.font')
+
+    echo -e "${BLUE}ℹ${NC} Loading styles for ${YELLOW}$current_font${NC}... (current: ${YELLOW}$current_style${NC})"
+    local styles=$(get_font_styles "$current_font")
+
+    if [ -z "$styles" ]; then
+        styles=$(echo -e "Regular\nBold\nItalic\nBold Italic\nLight\nMedium\nSemiBold\nExtraLight\nBlack")
+    fi
+
+    local selected_style=$(echo "$styles" | gum filter \
+        --placeholder "Type to search..." \
+        --header "🔍 Select $style_type Style" \
+        --height 15 \
+        --prompt "❯ ")
+
+    if [ -n "$selected_style" ] && [ "$selected_style" != "$current_style" ]; then
+        write_yaml_value "$yaml_key" "$selected_style"
+        echo -e "${GREEN}✓${NC} Style: ${YELLOW}$current_style${NC} → ${GREEN}$selected_style${NC}"
+        apply_and_reload
+    fi
+}
+
+adjust_font_size() {
+    local current_size=$(read_yaml_value 'kitty.fontSize')
+
+    local new_size=$(gum input \
+        --placeholder "$current_size" \
+        --header "📏 Enter Font Size" \
+        --prompt "❯ " \
+        --value "$current_size" \
+        --width 20)
+
+    if [ -n "$new_size" ] && [ "$new_size" != "$current_size" ]; then
+        if [[ "$new_size" =~ ^[0-9]+\.?[0-9]*$ ]]; then
+            write_yaml_value "kitty.fontSize" "$new_size"
+            echo -e "${GREEN}✓${NC} Size: ${YELLOW}${current_size}${NC} → ${GREEN}${new_size}${NC}"
+            apply_and_reload
+        else
+            echo -e "${RED}✗${NC} Invalid size (must be a number)"
+            sleep 1.5
+        fi
+    fi
+}
+
+adjust_cell_dimension() {
+    local dimension=$1  # "height" or "width"
+    local yaml_key="kitty.cell${dimension^}"
+    local current_value=$(read_yaml_value "$yaml_key")
+
+    local new_value=$(gum input \
+        --placeholder "$current_value" \
+        --header "📐 Enter Cell $dimension (e.g., 110%)" \
+        --prompt "❯ " \
+        --value "$current_value" \
+        --width 20)
+
+    if [ -n "$new_value" ] && [ "$new_value" != "$current_value" ]; then
+        write_yaml_value "$yaml_key" "$new_value"
+        echo -e "${GREEN}✓${NC} Cell $dimension: ${YELLOW}${current_value}${NC} → ${GREEN}${new_value}${NC}"
+        apply_and_reload
+    fi
+}
+
+# Main menu with inline values
+main_menu() {
+    while true; do
+        show_banner
+
+        # Get current values
+        local font=$(read_yaml_value 'kitty.font')
+        local size=$(read_yaml_value 'kitty.fontSize')
+        local height=$(read_yaml_value 'kitty.cellHeight')
+        local width=$(read_yaml_value 'kitty.cellWidth')
+        local normal=$(read_yaml_value 'kitty.styleNormal')
+        local bold=$(read_yaml_value 'kitty.styleBold')
+        local italic=$(read_yaml_value 'kitty.styleItalic')
+        local bolditalic=$(read_yaml_value 'kitty.styleBoldItalic')
+
+        # Build menu with current values embedded
+        local choice=$(gum choose \
+            "📝 Font Family         → $font" \
+            "📏 Font Size           → $size" \
+            "📐 Cell Height         → $height" \
+            "📐 Cell Width          → $width" \
+            "🔤 Normal Style        → $normal" \
+            "🔤 Bold Style          → $bold" \
+            "🔤 Italic Style        → $italic" \
+            "🔤 Bold+Italic Style   → $bolditalic" \
+            "" \
+            "💾 Save and Exit" \
+            "❌ Discard and Exit" \
+            --height 16 \
+            --header "Select setting to modify:")
+
+        case "$choice" in
+            "📝 Font Family"*)
+                select_font_family
+                ;;
+            "📏 Font Size"*)
+                adjust_font_size
+                ;;
+            "📐 Cell Height"*)
+                adjust_cell_dimension "Height"
+                ;;
+            "📐 Cell Width"*)
+                adjust_cell_dimension "Width"
+                ;;
+            "🔤 Normal Style"*)
+                select_font_style "Normal" "kitty.styleNormal"
+                ;;
+            "🔤 Bold Style"*)
+                select_font_style "Bold" "kitty.styleBold"
+                ;;
+            "🔤 Italic Style"*)
+                select_font_style "Italic" "kitty.styleItalic"
+                ;;
+            "🔤 Bold+Italic Style"*)
+                select_font_style "Bold+Italic" "kitty.styleBoldItalic"
+                ;;
+            "💾 Save and Exit")
+                clear
+                log_success "Changes saved!"
+                rm -f "$BACKUP_FILE"
+                exit 0
+                ;;
+            "❌ Discard and Exit")
+                clear
+                restore_backup
+                apply_and_reload
+                log_info "Changes discarded"
+                exit 0
+                ;;
+            "")
+                # Empty line selected, just refresh
+                ;;
+        esac
+    done
+}
+
+# ============================================================================
+# Main
+# ============================================================================
+
+main() {
+    # Check dependencies
+    for cmd in gum yq chezmoi fc-list; do
+        if ! command -v $cmd &> /dev/null; then
+            log_error "Required command not found: $cmd"
+            exit 1
+        fi
+    done
+
+    log_info "Starting Kitty Font Picker..."
+    create_backup
+
+    main_menu
+}
+
+main "$@"
