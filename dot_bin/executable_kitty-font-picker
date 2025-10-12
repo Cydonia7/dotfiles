@@ -115,7 +115,7 @@ apply_and_reload() {
 
 # Get available font families
 get_font_families() {
-    fc-list : family | sort -u | sed 's/,.*$//' | grep -i "mono\|nerd\|code\|consol\|hack\|jetbrains\|fira\|source"
+    fc-list : family | sed 's/,.*$//' | grep -i "mono\|nerd\|code\|consol\|hack\|jetbrains\|fira\|source" | sort -u
 }
 
 # Get available styles for a font
