@@ -72,3 +72,7 @@ alias dh='document_aliases_and_functions "$HOME/.bash.d"' # Shows help for dotfi
 ## Kitty terminal
 alias ekf='kitty-font-picker' # Edit kitty font (interactive font picker)
 
+## Claude Code
+alias cc='claude --dangerously-skip-permissions' # Claude Code without permission prompts
+alias ccc='claude --dangerously-skip-permissions --resume' # Claude Code without permissions + resume
+
