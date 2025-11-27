@@ -7,6 +7,7 @@ alias sa="ssh-add"     # Add key to the SSH agent
 alias sl="keychain -l" # List keys in the SSH agent
 alias eb="exec bash"
 alias cb="xclip -sel clipboard"
+alias startvnc="x11vnc -display :0 -rfbport 5900 -rfbauth ~/.vnc/passwd -listen 100.121.124.42 -nolookup -forever"
 
 eval "$(zoxide init bash)"
 
