@@ -416,6 +416,9 @@ main_loop() {
 
     # Show cursor, enable mouse, and restore main screen buffer
     echo -ne "\033[?25h\033[?1000h\033[?1049l"
+
+    # Reset terminal to ensure clean state
+    reset
 }
 
 # Run the main loop
