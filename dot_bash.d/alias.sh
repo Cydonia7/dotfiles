@@ -76,3 +76,6 @@ alias ekf='kitty-font-picker' # Edit kitty font (interactive font picker)
 alias cc='claude --dangerously-skip-permissions' # Claude Code without permission prompts
 alias ccc='claude --dangerously-skip-permissions --resume' # Claude Code without permissions + resume
 
+## Series Tracker
+alias st='~/.bin/series-tracker' # TV series progress tracker
+

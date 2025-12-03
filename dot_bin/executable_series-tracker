@@ -1,0 +1,419 @@
+#!/bin/bash
+
+# TV Series Progress Tracker
+# A TUI for tracking watch progress across multiple TV series
+
+# Constants
+PROGRESS_FILE="$HOME/.config/series-tracker/progress.conf"
+SERIES_CONFIG="$HOME/.config/series-tracker/series.conf"
+CONFIG_DIR="$(dirname "$PROGRESS_FILE")"
+
+# Series configuration (loaded from file)
+declare -A SERIES_NAMES
+declare -A SERIES_PATHS
+declare -A SERIES_TYPES
+SERIES_COUNT=0
+
+# Current state
+declare -A CURRENT_SEASON
+declare -A CURRENT_EPISODE
+declare -A EPISODE_CACHE
+SELECTED=1
+
+# Colors
+COLOR_RESET="\033[0m"
+COLOR_HEADER="\033[1;36m"      # Cyan bold
+COLOR_SELECTED="\033[1;32m"    # Green bold
+COLOR_NORMAL="\033[0;37m"      # White
+COLOR_EPISODE="\033[0;33m"     # Yellow
+COLOR_BORDER="\033[0;34m"      # Blue
+COLOR_HINT="\033[0;90m"        # Gray
+
+# Load series configuration from file
+load_series_config() {
+    if [[ ! -f "$SERIES_CONFIG" ]]; then
+        echo "Error: Series configuration file not found at $SERIES_CONFIG"
+        exit 1
+    fi
+
+    local index=1
+    while IFS='|' read -r name path type; do
+        # Skip comments and empty lines
+        [[ "$name" =~ ^#.*$ || -z "$name" ]] && continue
+
+        SERIES_NAMES[$index]="$name"
+        SERIES_PATHS[$index]="$path"
+        SERIES_TYPES[$index]="$type"
+        ((index++))
+    done < "$SERIES_CONFIG"
+
+    SERIES_COUNT=$((index - 1))
+}
+
+# Initialize progress file and config directory
+init_progress() {
+    if [[ ! -d "$CONFIG_DIR" ]]; then
+        mkdir -p "$CONFIG_DIR"
+    fi
+
+    if [[ ! -f "$PROGRESS_FILE" ]]; then
+        # Initialize progress for all configured series
+        for i in $(seq 1 $SERIES_COUNT); do
+            # Check if episode 0 exists for this series
+            local ep0=$(get_episode_path "$i" 1 0)
+            local start_ep=1
+            if [[ -n "$ep0" ]]; then
+                start_ep=0
+            fi
+
+            echo "${SERIES_NAMES[$i]}|1|${start_ep}" >> "$PROGRESS_FILE"
+        done
+    fi
+}
+
+# Load progress from file
+load_progress() {
+    while IFS='|' read -r series season episode; do
+        for i in "${!SERIES_NAMES[@]}"; do
+            if [[ "${SERIES_NAMES[$i]}" == "$series" ]]; then
+                CURRENT_SEASON[$i]=$season
+                CURRENT_EPISODE[$i]=$episode
+                break
+            fi
+        done
+    done < "$PROGRESS_FILE"
+}
+
+# Save progress to file
+save_progress() {
+    > "$PROGRESS_FILE"
+    for i in "${!SERIES_NAMES[@]}"; do
+        echo "${SERIES_NAMES[$i]}|${CURRENT_SEASON[$i]}|${CURRENT_EPISODE[$i]}" >> "$PROGRESS_FILE"
+    done
+}
+
+# Get episodes for a series based on structure type
+get_episodes_by_type() {
+    local series_id=$1
+    local season=$2
+    local base_path="${SERIES_PATHS[$series_id]}"
+    local structure_type="${SERIES_TYPES[$series_id]}"
+
+    case "$structure_type" in
+        flat)
+            # All episodes in one directory
+            find "$base_path" -maxdepth 1 \( -name "*.mp4" -o -name "*.avi" \) | \
+                grep -E "S0*${season}E[0-9]+" | \
+                sort -V
+            ;;
+        versioned)
+            # Subdirectories named "Version X.0"
+            local version_dir="$base_path/Version ${season}.0"
+            if [[ -d "$version_dir" ]]; then
+                find "$version_dir" -maxdepth 1 \( -name "*.mp4" -o -name "*.avi" \) | \
+                    grep -E "S0*${season}E[0-9]+" | \
+                    sort -V
+            fi
+            ;;
+        seasonal)
+            # Subdirectories named "S1", "S2", etc.
+            local season_dir="$base_path/S${season}"
+            if [[ -d "$season_dir" ]]; then
+                find "$season_dir" -maxdepth 1 \( -name "*.mp4" -o -name "*.avi" \) | \
+                    sort -V
+            fi
+            ;;
+    esac
+}
+
+# Get episode path for a specific series, season, and episode number
+get_episode_path() {
+    local series_id=$1
+    local season=$2
+    local episode=$3
+
+    local episodes=$(get_episodes_by_type "$series_id" "$season")
+    # Match by episode number in filename (e.g., S01E07)
+    echo "$episodes" | grep -E "S0*${season}E0*${episode}[^0-9]" | head -1
+}
+
+# Cached version of get_episode_path
+get_episode_path_cached() {
+    local series_id=$1
+    local season=$2
+    local episode=$3
+    local cache_key="${series_id}|${season}|${episode}"
+
+    # Return from cache if available
+    if [[ -n "${EPISODE_CACHE[$cache_key]}" ]]; then
+        echo "${EPISODE_CACHE[$cache_key]}"
+        return
+    fi
+
+    # Otherwise, fetch and cache
+    local path=$(get_episode_path "$series_id" "$season" "$episode")
+    EPISODE_CACHE[$cache_key]="$path"
+    echo "$path"
+}
+
+# Count episodes in a season
+count_episodes() {
+    local series_id=$1
+    local season=$2
+
+    local episodes=$(get_episodes_by_type "$series_id" "$season")
+    echo "$episodes" | wc -l
+}
+
+# Check if next season exists
+next_season_exists() {
+    local series_id=$1
+    local season=$2
+    local next_season=$((season + 1))
+
+    local count=$(count_episodes "$series_id" "$next_season")
+    [[ $count -gt 0 ]]
+}
+
+# Extract episode title from filename
+extract_title() {
+    local filepath=$1
+    local filename=$(basename "$filepath")
+
+    # Remove file extension
+    filename="${filename%.*}"
+
+    # Try to extract title after S##E## pattern
+    if [[ $filename =~ S[0-9]+E[0-9]+[[:space:]]*(.+)$ ]]; then
+        local title="${BASH_REMATCH[1]}"
+        # Clean up common suffixes and technical terms
+        title=$(echo "$title" | sed -E 's/[[:space:]]*(1080p|720p|480p|360p|DVDRip|BluRay|BRRip|WEBRip|HDTV|H\.264|x264|H\.265|x265|AAC|MP3|BONE|moviesbyrizzo|upload|PROPER|REPACK).*$//')
+        title=$(echo "$title" | sed 's/^[[:space:]]*-[[:space:]]*//;s/^[[:space:]]*//;s/[[:space:]]*$//')  # trim whitespace and leading dash
+
+        # If title is empty or just quality indicators, return empty
+        if [[ -z "$title" || "$title" =~ ^(1080p|720p|480p|360p)$ ]]; then
+            echo ""
+        else
+            echo "$title"
+        fi
+    else
+        echo ""
+    fi
+}
+
+# Mark current episode as watched and advance
+mark_watched() {
+    local series_id=$SELECTED
+    local season=${CURRENT_SEASON[$series_id]}
+    local episode=${CURRENT_EPISODE[$series_id]}
+
+    local total_episodes=$(count_episodes "$series_id" "$season")
+
+    if [[ $episode -lt $total_episodes ]]; then
+        # Move to next episode in same season
+        CURRENT_EPISODE[$series_id]=$((episode + 1))
+    else
+        # End of season - check for next season
+        if next_season_exists "$series_id" "$season"; then
+            # Move to first episode of next season
+            CURRENT_SEASON[$series_id]=$((season + 1))
+            CURRENT_EPISODE[$series_id]=1
+        else
+            # Series complete - wrap to beginning
+            CURRENT_SEASON[$series_id]=1
+            CURRENT_EPISODE[$series_id]=1
+        fi
+    fi
+
+    save_progress
+}
+
+# Reset current series to the beginning
+reset_series() {
+    local series_id=$SELECTED
+
+    # Check if episode 0 exists for this series in season 1
+    local ep0_path=$(get_episode_path "$series_id" 1 0)
+
+    CURRENT_SEASON[$series_id]=1
+    if [[ -n "$ep0_path" ]]; then
+        CURRENT_EPISODE[$series_id]=0
+    else
+        CURRENT_EPISODE[$series_id]=1
+    fi
+
+    save_progress
+}
+
+# Play episode with parole
+play_episode() {
+    local filepath=$1
+
+    if [[ -f "$filepath" ]]; then
+        parole "$filepath" &>/dev/null &
+    fi
+}
+
+# Draw the TUI
+draw_ui() {
+    local buffer=""
+    local box_width=73  # Internal content width
+
+    # Move cursor to home position (don't clear screen)
+    buffer+="\033[H"
+
+    # Generate border lines based on box_width
+    local top_border="╔$(printf '%0.s═' $(seq 1 $box_width))╗"
+    local mid_border="╠$(printf '%0.s═' $(seq 1 $box_width))╣"
+    local bot_border="╚$(printf '%0.s═' $(seq 1 $box_width))╝"
+
+    # Header
+    buffer+="${COLOR_BORDER}${top_border}${COLOR_RESET}\n"
+    local header_text="TV Series Progress Tracker"
+    local header_left_padding=$(( (box_width - ${#header_text}) / 2 ))
+    local header_right_padding=$(( box_width - ${#header_text} - header_left_padding ))
+    buffer+="${COLOR_BORDER}║${COLOR_RESET}$(printf "%${header_left_padding}s")${COLOR_HEADER}${header_text}${COLOR_RESET}$(printf "%${header_right_padding}s")${COLOR_BORDER}║${COLOR_RESET}\n"
+    buffer+="${COLOR_BORDER}${mid_border}${COLOR_RESET}\n"
+    buffer+="${COLOR_BORDER}║$(printf "%${box_width}s" " ")║${COLOR_RESET}\n"
+
+    # Series list
+    for i in $(seq 1 $SERIES_COUNT); do
+        local series_name="${SERIES_NAMES[$i]}"
+        local season=${CURRENT_SEASON[$i]}
+        local episode=${CURRENT_EPISODE[$i]}
+        local episode_path=$(get_episode_path_cached "$i" "$season" "$episode")
+
+        # Series name line
+        local series_padding
+        if [[ $i -eq $SELECTED ]]; then
+            local text="  ▶ ${series_name}"
+            series_padding=$((box_width - ${#text}))
+            buffer+="${COLOR_BORDER}║${COLOR_SELECTED}${text}${COLOR_RESET}$(printf "%${series_padding}s")${COLOR_BORDER}║${COLOR_RESET}\n"
+        else
+            local text="    ${series_name}"
+            series_padding=$((box_width - ${#text}))
+            buffer+="${COLOR_BORDER}║${COLOR_NORMAL}${text}${COLOR_RESET}$(printf "%${series_padding}s")${COLOR_BORDER}║${COLOR_RESET}\n"
+        fi
+
+        # Episode info
+        local ep_title=$(extract_title "$episode_path")
+        local ep_display="S$(printf %02d $season)E$(printf %02d $episode)"
+
+        if [[ -n "$ep_title" ]]; then
+            # Truncate title if too long
+            if [[ ${#ep_title} -gt 37 ]]; then
+                ep_title="${ep_title:0:34}..."
+            fi
+            ep_display="$ep_display - $ep_title"
+        fi
+
+        # Episode info line
+        local full_text="    Current: ${ep_display}"
+        local ep_padding=$((box_width - ${#full_text}))
+        buffer+="${COLOR_BORDER}║${COLOR_RESET}    Current: ${COLOR_EPISODE}${ep_display}${COLOR_RESET}$(printf "%${ep_padding}s")${COLOR_BORDER}║${COLOR_RESET}\n"
+
+        # Blank line
+        buffer+="${COLOR_BORDER}║$(printf "%${box_width}s" " ")║${COLOR_RESET}\n"
+    done
+
+    # Footer
+    buffer+="${COLOR_BORDER}${bot_border}${COLOR_RESET}\n"
+
+    # Hints (outside the table, centered, in gray)
+    local hints="↑/↓: Select │ w: Watch │ d: Done │ n: Play next │ r: Reset │ q: Quit"
+    local hints_padding=$(( (box_width + 2 - ${#hints}) / 2 ))
+    buffer+="$(printf "%${hints_padding}s")${COLOR_HINT}${hints}${COLOR_RESET}"
+
+    # Output entire buffer at once
+    echo -ne "$buffer"
+}
+
+# Handle keyboard input
+handle_input() {
+    local key
+
+    # Read single character
+    IFS= read -rsn1 key
+
+    # Handle escape sequences (arrow keys)
+    if [[ $key == $'\x1b' ]]; then
+        read -rsn2 key
+        case $key in
+            '[A') # Up arrow
+                SELECTED=$((SELECTED - 1))
+                [[ $SELECTED -lt 1 ]] && SELECTED=$SERIES_COUNT
+                ;;
+            '[B') # Down arrow
+                SELECTED=$((SELECTED + 1))
+                [[ $SELECTED -gt $SERIES_COUNT ]] && SELECTED=1
+                ;;
+        esac
+    else
+        case $key in
+            'q'|'Q')
+                return 1
+                ;;
+            'w'|'W')  # Watch current episode (resume/rewatch)
+                local series_id=$SELECTED
+                local season=${CURRENT_SEASON[$series_id]}
+                local episode=${CURRENT_EPISODE[$series_id]}
+                local episode_path=$(get_episode_path "$series_id" "$season" "$episode")
+
+                if [[ -n "$episode_path" && -f "$episode_path" ]]; then
+                    play_episode "$episode_path"
+                fi
+                ;;
+            'd'|'D')  # Mark current episode as done (advance to next)
+                mark_watched
+                ;;
+            'n'|'N')  # Mark as done and play next episode
+                mark_watched
+
+                local series_id=$SELECTED
+                local season=${CURRENT_SEASON[$series_id]}
+                local episode=${CURRENT_EPISODE[$series_id]}
+                local episode_path=$(get_episode_path "$series_id" "$season" "$episode")
+
+                if [[ -n "$episode_path" && -f "$episode_path" ]]; then
+                    play_episode "$episode_path"
+                fi
+                ;;
+            'r'|'R')  # Reset series to beginning
+                reset_series
+                ;;
+        esac
+    fi
+
+    return 0
+}
+
+# Main loop
+main_loop() {
+    # Load series configuration first
+    load_series_config
+
+    init_progress
+    load_progress
+
+    # Check if parole is available
+    if ! command -v parole &> /dev/null; then
+        echo "Error: parole video player not found. Please install it first."
+        exit 1
+    fi
+
+    # Clear screen and hide cursor
+    clear
+    echo -ne "\033[?25l"
+
+    while true; do
+        draw_ui
+        handle_input || break
+    done
+
+    # Show cursor and clear screen on exit
+    echo -ne "\033[?25h"
+    clear
+}
+
+# Run the main loop
+main_loop
