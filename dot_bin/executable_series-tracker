@@ -332,6 +332,9 @@ draw_ui() {
 handle_input() {
     local key
 
+    # Flush input buffer before reading
+    while read -rsn1 -t 0.001 discard; do :; done
+
     # Read single character
     IFS= read -rsn1 key
 
@@ -348,6 +351,8 @@ handle_input() {
                 [[ $SELECTED -gt $SERIES_COUNT ]] && SELECTED=1
                 ;;
         esac
+        # Flush any remaining buffered input after arrow key
+        while read -rsn1 -t 0.001 discard; do :; done
     else
         case $key in
             'q'|'Q')
@@ -401,18 +406,16 @@ main_loop() {
         exit 1
     fi
 
-    # Clear screen and hide cursor
-    clear
-    echo -ne "\033[?25l"
+    # Switch to alternate screen buffer, clear, hide cursor, and disable mouse
+    echo -ne "\033[?1049h\033[H\033[2J\033[?25l\033[?1000l"
 
     while true; do
         draw_ui
         handle_input || break
     done
 
-    # Show cursor and clear screen on exit
-    echo -ne "\033[?25h"
-    clear
+    # Show cursor, enable mouse, and restore main screen buffer
+    echo -ne "\033[?25h\033[?1000h\033[?1049l"
 }
 
 # Run the main loop
