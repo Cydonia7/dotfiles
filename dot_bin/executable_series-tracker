@@ -406,16 +406,32 @@ main_loop() {
         exit 1
     fi
 
-    # Switch to alternate screen buffer, clear, hide cursor, and disable mouse
-    echo -ne "\033[?1049h\033[H\033[2J\033[?25l\033[?1000l"
+    # Save current terminal settings
+    local old_tty_settings=$(stty -g)
+
+    # Switch to alternate screen buffer, clear, and hide cursor
+    echo -ne "\033[?1049h\033[H\033[2J\033[?25l"
 
     while true; do
         draw_ui
         handle_input || break
     done
 
-    # Show cursor, enable mouse, and restore main screen buffer
-    echo -ne "\033[?25h\033[?1000h\033[?1049l"
+    # Restore everything - disable ALL mouse tracking modes explicitly
+    echo -ne "\033[?1000l"    # Disable X10 mouse
+    echo -ne "\033[?1001l"    # Disable highlight mouse
+    echo -ne "\033[?1002l"    # Disable button event mouse
+    echo -ne "\033[?1003l"    # Disable any event mouse
+    echo -ne "\033[?1004l"    # Disable focus events
+    echo -ne "\033[?1005l"    # Disable UTF-8 mouse mode
+    echo -ne "\033[?1006l"    # Disable SGR mouse mode
+    echo -ne "\033[?1015l"    # Disable urxvt mouse mode
+    echo -ne "\033[0m"        # Reset all attributes
+    echo -ne "\033[?25h"      # Show cursor
+    echo -ne "\033[?1049l"    # Restore main screen buffer
+
+    # Restore terminal settings
+    stty "$old_tty_settings"
 }
 
 # Run the main loop
