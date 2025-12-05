@@ -94,6 +94,65 @@ wait_for_device() {
 }
 
 #
+# is_url()
+# Check if input is a URL
+# Args: $1 - input string
+# Returns: 0 if URL, 1 otherwise
+#
+is_url() {
+    local input="$1"
+    if [[ "$input" =~ ^https?:// ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+#
+# download_url()
+# Download a file from URL
+# Args: $1 - URL
+# Returns: path to downloaded file (or empty string on failure)
+#
+download_url() {
+    local url="$1"
+    local output_file
+    local filename
+
+    # Try to extract filename from URL, or use timestamp
+    filename=$(basename "$url" | sed 's/[?#].*//')
+    if [ -z "$filename" ] || [ "$filename" = "/" ]; then
+        filename="download-$(date +%s)"
+    fi
+
+    output_file="$TEMP_DIR/$filename"
+
+    echo "🌐 Downloading from URL..." >&2
+    echo "   🔗 $url" >&2
+
+    # Download using curl or wget
+    if command -v curl &> /dev/null; then
+        if curl -L -f -s -S -o "$output_file" "$url" 2>&1; then
+            echo "✅ Download complete" >&2
+            echo "$output_file"
+            return 0
+        fi
+    elif command -v wget &> /dev/null; then
+        if wget -q -O "$output_file" "$url" 2>&1; then
+            echo "✅ Download complete" >&2
+            echo "$output_file"
+            return 0
+        fi
+    else
+        echo "❌ Neither curl nor wget found" >&2
+        return 1
+    fi
+
+    echo "❌ Download failed" >&2
+    return 1
+}
+
+#
 # detect_file_type()
 # Determine if file is PDF, image, or unsupported
 # Args: $1 - file path
@@ -250,18 +309,19 @@ show_usage() {
 📚 reMarkable Upload Script
 
 Usage:
-  $(basename "$0") <file> [name]
+  $(basename "$0") <file|url> [name]
 
 Description:
   Upload a PDF or image to your reMarkable device at $REMARKABLE_IP
 
   📄 PDFs: Uploaded directly
   🖼️  Images: Automatically converted to PDF (100 DPI)
+  🌐 URLs: Downloaded first, then processed
 
 Arguments:
-  file    - Path to PDF or image file
-  name    - Optional name for the document (without .pdf extension)
-            If not provided, uses the original filename
+  file|url - Path to local file OR http/https URL
+  name     - Optional name for the document (without .pdf extension)
+             If not provided, uses the original/downloaded filename
 
 Supported formats:
   - PDF (.pdf)
@@ -272,6 +332,8 @@ Examples:
   $(basename "$0") photo.png
   $(basename "$0") enigme4.png "Enigme 4"
   $(basename "$0") screenshot.png "My Notes"
+  $(basename "$0") https://example.com/document.pdf
+  $(basename "$0") https://example.com/image.png "Downloaded Image"
 
 Requirements:
   - RCU (reMarkable Connection Utility) installed and configured
@@ -321,24 +383,42 @@ main() {
     # Create temp directory
     mkdir -p "$TEMP_DIR"
 
-    # Parse arguments: file and optional name
-    local filepath="$1"
+    # Parse arguments: file/URL and optional name
+    local input="$1"
     local output_name="${2:-}"
+    local filepath
+    local downloaded=false
 
-    # Check file exists
-    if [ ! -f "$filepath" ]; then
-        echo "❌ File not found: $filepath"
-        exit 1
-    fi
+    # Check if input is a URL
+    if is_url "$input"; then
+        filepath=$(download_url "$input")
+        if [ -z "$filepath" ] || [ ! -f "$filepath" ]; then
+            echo "❌ Failed to download URL"
+            exit 1
+        fi
+        downloaded=true
+    else
+        filepath="$input"
 
-    # Check file is readable
-    if [ ! -r "$filepath" ]; then
-        echo "❌ File not readable: $filepath"
-        exit 1
+        # Check file exists
+        if [ ! -f "$filepath" ]; then
+            echo "❌ File not found: $filepath"
+            exit 1
+        fi
+
+        # Check file is readable
+        if [ ! -r "$filepath" ]; then
+            echo "❌ File not readable: $filepath"
+            exit 1
+        fi
     fi
 
     # Detect file type
     filetype=$(detect_file_type "$filepath")
+
+    if [ "$downloaded" = true ]; then
+        echo "📦 Downloaded file type: $filetype" >&2
+    fi
 
     case "$filetype" in
         pdf)
