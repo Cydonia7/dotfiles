@@ -1,0 +1,787 @@
+#!/usr/bin/env bash
+
+set -e
+
+# ============================================================================
+# Advent of Code Project Generator
+# ============================================================================
+# Creates a Symfony console-based Advent of Code project with proper structure
+#
+# Usage:
+#   aoc-init              # Auto-detect year/day from current date
+#   aoc-init 2024 5       # Specific year and day
+#   aoc-init --help
+# ============================================================================
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+print_error() {
+    echo -e "${RED}Error:${NC} $1" >&2
+}
+
+print_success() {
+    echo -e "${GREEN}✅${NC} $1"
+}
+
+print_info() {
+    echo -e "${BLUE}ℹ${NC}  $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}⚠${NC}  $1" >&2
+}
+
+print_step() {
+    echo -e "${CYAN}▶${NC}  $1"
+}
+
+show_help() {
+    cat << EOF
+Advent of Code Project Generator (Symfony Console Edition)
+
+Usage:
+  aoc-init              Auto-detect year/day from current date
+  aoc-init YEAR DAY     Create project for specific year and day
+  aoc-init --help       Show this help
+
+Examples:
+  aoc-init              # Creates project for today (if in December 1-25)
+  aoc-init 2024 5       # Creates project for 2024 day 5
+
+Features:
+  - Symfony console application structure
+  - Auto-fetches puzzle input from adventofcode.com
+  - Extracts examples from problem description
+  - Creates tests with example data
+  - bin/solve shows both Part 1 and Part 2 answers
+  - Unimplemented parts throw BadMethodCallException
+  - Castor watch for test-driven development
+
+Requirements:
+  - PHP 8.4+, Composer, curl, sqlite3, xclip/wl-copy
+EOF
+    exit 0
+}
+
+# ============================================================================
+# Date Auto-Detection
+# ============================================================================
+
+auto_detect_date() {
+    local current_month=$(date +%-m)
+    local current_day=$(date +%-d)
+    local current_year=$(date +%Y)
+
+    if [[ "$current_month" == "12" ]] && (( current_day >= 1 && current_day <= 25 )); then
+        echo "$current_year $current_day"
+    else
+        echo "$current_year 1"
+    fi
+}
+
+# ============================================================================
+# Cookie Management
+# ============================================================================
+
+get_aoc_cookie() {
+    echo "To get your session cookie:" >&2
+    echo "  1. Visit https://adventofcode.com (make sure you're logged in)" >&2
+    echo "  2. Press F12 to open DevTools" >&2
+    echo "  3. Go to Application > Cookies > https://adventofcode.com" >&2
+    echo "  4. Find 'session' cookie and copy its Value" >&2
+    echo >&2
+    read -p "Paste your session cookie: " -r cookie </dev/tty
+    echo "$cookie"
+}
+
+# ============================================================================
+# HTML Parsing
+# ============================================================================
+
+fetch_page() {
+    local year=$1
+    local day=$2
+    local cookie=$3
+
+    curl -s "https://adventofcode.com/$year/day/$day" \
+        -H "Cookie: session=$cookie" \
+        -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
+        -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9" \
+        -H "Accept-Language: en-US,en;q=0.9"
+}
+
+extract_code_blocks() {
+    local html=$1
+    echo "$html" | perl -0777 -ne 'while (/<pre><code>(.*?)<\/code><\/pre>/sg) { print "$1\n---BLOCK-SEPARATOR---\n" }'
+}
+
+extract_emphasized_outputs() {
+    local html=$1
+    echo "$html" | perl -0777 -ne 'while (/<code[^>]*><em[^>]*>(.*?)<\/em><\/code>/sg) { print "$1\n" }'
+}
+
+# ============================================================================
+# Interactive Selection
+# ============================================================================
+
+select_from_list() {
+    local prompt=$1
+    shift
+    local options=("$@")
+
+    if [[ ${#options[@]} -eq 0 ]]; then
+        print_error "No options to select from"
+        return 1
+    fi
+
+    if [[ ${#options[@]} -eq 1 ]]; then
+        echo "${options[0]}"
+        return 0
+    fi
+
+    echo "$prompt" >&2
+    for i in "${!options[@]}"; do
+        local content="${options[$i]}"
+        echo "  $((i+1)))" >&2
+        # Show first 5 lines of the content
+        echo "$content" | head -5 | sed 's/^/     /' >&2
+        local lines=$(echo "$content" | wc -l)
+        if [[ $lines -gt 5 ]]; then
+            echo "     ... ($(($lines - 5)) more lines)" >&2
+        fi
+        echo >&2
+    done
+
+    while true; do
+        read -p "Select (1-${#options[@]}): " choice </dev/tty
+        if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= ${#options[@]} )); then
+            echo "${options[$((choice-1))]}"
+            return 0
+        fi
+        print_error "Invalid selection. Please enter a number between 1 and ${#options[@]}"
+    done
+}
+
+# ============================================================================
+# Download Functions
+# ============================================================================
+
+download_puzzle_input() {
+    local year=$1
+    local day=$2
+    local cookie=$3
+    local output_file=$4
+
+    local http_code=$(curl -s -w "%{http_code}" -o "$output_file" \
+        "https://adventofcode.com/$year/day/$day/input" \
+        -b "session=$cookie" \
+        -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
+        -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9" \
+        -H "Accept-Language: en-US,en;q=0.9" \
+        -H "Cache-Control: no-cache" \
+        -H "Pragma: no-cache")
+
+    if [[ "$http_code" != "200" ]]; then
+        print_error "Failed to download puzzle input (HTTP $http_code)"
+        return 1
+    fi
+    return 0
+}
+
+# ============================================================================
+# Project Setup Functions
+# ============================================================================
+
+create_project_structure() {
+    mkdir -p src tests input bin
+}
+
+generate_composer_json() {
+    local year=$1
+    local day=$2
+    cat > composer.json << EOF
+{
+    "name": "aoc/day-$day",
+    "description": "Advent of Code $year Day $day",
+    "type": "project",
+    "require": {
+        "php": "^8.4",
+        "symfony/console": "^7.2"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.0",
+        "symfony/var-dumper": "^7.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "App\\\\Tests\\\\": "tests/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    }
+}
+EOF
+}
+
+generate_phpunit_xml() {
+    cat > phpunit.xml << 'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         stopOnFailure="false">
+    <testsuites>
+        <testsuite name="default">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>src</directory>
+        </include>
+    </source>
+</phpunit>
+EOF
+}
+
+generate_castor_php() {
+    cat > castor.php << 'EOF'
+<?php
+
+use Castor\Attribute\AsTask;
+
+use function Castor\run;
+use function Castor\watch;
+use function Castor\notify;
+
+#[AsTask(description: 'Run tests')]
+function test(): void
+{
+    runPhpunit();
+}
+
+#[AsTask(description: 'Watch tests and rerun on changes')]
+function watchTests(): void
+{
+    runPhpunit();
+
+    $lastRun = time();
+    watch(['src', 'tests'], function () use (&$lastRun) {
+        if (time() - $lastRun < 1) {
+            return;
+        }
+
+        runPhpunit();
+        $lastRun = time();
+    });
+}
+
+function runPhpunit(): void
+{
+    $process = run('clear && ./vendor/bin/phpunit', allowFailure: true);
+    $outputLines = explode("\n", rtrim($process->getOutput()));
+    $result = end($outputLines);
+    $result = preg_replace("#\e\[[0-9;]+m#", '', $result);
+
+    notify($result, $process->isSuccessful() ? '✅ Tests passed' : '❌ Tests failed');
+}
+EOF
+}
+
+generate_makefile() {
+    cat > Makefile << 'EOF'
+.PHONY: dev test watch install solve
+
+dev:
+	@if tmux has-session -t dev 2>/dev/null; then \
+		tmux attach-session -t dev; \
+	else \
+		tmux new-session -s dev -d; \
+		tmux split-window -h -t dev; \
+		tmux send-keys -t dev:0.0 'nvim .' C-m; \
+		tmux send-keys -t dev:0.1 'castor watch-tests' C-m; \
+		tmux select-pane -t dev:0.0; \
+		tmux attach-session -t dev; \
+	fi
+
+test:
+	castor test
+
+watch:
+	castor watch-tests
+
+install:
+	composer install
+
+solve:
+	php bin/solve
+EOF
+}
+
+generate_gitignore() {
+    cat > .gitignore << 'EOF'
+/vendor/
+.phpunit.cache/
+.phpunit.result.cache
+composer.phar
+composer.lock
+.DS_Store
+.idea/
+*.swp
+*.swo
+*~
+EOF
+}
+
+generate_editorconfig() {
+    cat > .editorconfig << 'EOF'
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.php]
+indent_style = space
+indent_size = 4
+
+[*.{json,yml,yaml}]
+indent_style = space
+indent_size = 2
+
+[Makefile]
+indent_style = tab
+EOF
+}
+
+generate_problem_solver() {
+    local expected_output=$1
+    local output_type=$2
+
+    local return_type="string"
+    if [[ "$output_type" == "int" ]]; then
+        return_type="int"
+    fi
+
+    cat > src/ProblemSolver.php << EOF
+<?php
+
+declare(strict_types=1);
+
+namespace App;
+
+class ProblemSolver
+{
+    public function solvePart1(string \$input): $return_type
+    {
+        \$lines = explode("\n", trim(\$input));
+
+        // TODO: Implement part 1 solution
+        // For now, returning the expected output from the example
+        return $expected_output;
+    }
+
+    public function solvePart2(string \$input): $return_type
+    {
+        throw new \BadMethodCallException('Part 2 not implemented yet');
+    }
+}
+EOF
+}
+
+generate_problem_solver_test() {
+    local expected_output=$1
+    local output_type=$2
+
+    # Determine assertion based on type
+    local assertion="assertSame"
+    local expected_value
+    if [[ "$output_type" == "int" ]]; then
+        expected_value="$expected_output"
+    else
+        expected_value="'$expected_output'"
+    fi
+
+    cat > tests/ProblemSolverTest.php << EOF
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests;
+
+use App\ProblemSolver;
+use PHPUnit\Framework\TestCase;
+
+class ProblemSolverTest extends TestCase
+{
+    public function testPart1WithExample(): void
+    {
+        \$input = file_get_contents(__DIR__ . '/../input/example.txt');
+        \$expectedOutput = $expected_value;
+
+        \$solver = new ProblemSolver();
+        \$this->assertSame(\$expectedOutput, \$solver->solvePart1(\$input));
+    }
+
+    public function testPart2WithExample(): void
+    {
+        \$input = file_get_contents(__DIR__ . '/../input/example.txt');
+        \$expectedOutput = null; // TODO: Add expected output after solving part 1
+
+        \$solver = new ProblemSolver();
+
+        try {
+            \$result = \$solver->solvePart2(\$input);
+            \$this->assertSame(\$expectedOutput, \$result);
+        } catch (\BadMethodCallException \$e) {
+            \$this->markTestSkipped('Part 2 not implemented yet');
+        }
+    }
+}
+EOF
+}
+
+generate_solve_script() {
+    cat > bin/solve << 'EOF'
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+require_once __DIR__ . '/../vendor/autoload.php';
+
+use App\ProblemSolver;
+
+$input = file_get_contents(__DIR__ . '/../input/puzzle.txt');
+$solver = new ProblemSolver();
+
+echo "\n\033[1;34mAdvent of Code Solution\033[0m\n";
+echo str_repeat('=', 40) . "\n\n";
+
+$lastAnswer = null;
+
+// Part 1
+echo "\033[1;33mPart 1:\033[0m ";
+try {
+    $answer1 = $solver->solvePart1($input);
+    echo "\033[1;32m$answer1\033[0m\n";
+    $lastAnswer = (string)$answer1;
+} catch (\BadMethodCallException $e) {
+    echo "\033[0;33mNot implemented yet\033[0m\n";
+}
+
+echo "\n";
+
+// Part 2
+echo "\033[1;33mPart 2:\033[0m ";
+try {
+    $answer2 = $solver->solvePart2($input);
+    echo "\033[1;32m$answer2\033[0m\n";
+    $lastAnswer = (string)$answer2;
+} catch (\BadMethodCallException $e) {
+    echo "\033[0;33mNot implemented yet\033[0m\n";
+}
+
+echo "\n";
+
+// Copy last answer to clipboard
+if ($lastAnswer !== null) {
+    if (shell_exec('which xclip 2>/dev/null')) {
+        shell_exec('echo -n ' . escapeshellarg($lastAnswer) . ' | xclip -selection clipboard 2>/dev/null');
+        echo "\033[0;32m✓ Answer copied to clipboard\033[0m\n\n";
+    } elseif (shell_exec('which wl-copy 2>/dev/null')) {
+        shell_exec('echo -n ' . escapeshellarg($lastAnswer) . ' | wl-copy 2>/dev/null');
+        echo "\033[0;32m✓ Answer copied to clipboard\033[0m\n\n";
+    }
+}
+EOF
+    chmod +x bin/solve
+}
+
+generate_readme() {
+    local year=$1
+    local day=$2
+    cat > README.md << EOF
+# Advent of Code $year - Day $day
+
+Problem: https://adventofcode.com/$year/day/$day
+
+## Setup
+
+\`\`\`bash
+composer install
+\`\`\`
+
+## Running
+
+\`\`\`bash
+bin/solve          # Run both parts
+make test          # Run tests
+make dev           # Start tmux (nvim + test watcher)
+\`\`\`
+
+## Structure
+
+- \`src/ProblemSolver.php\` - Solution implementation
+- \`tests/ProblemSolverTest.php\` - Tests with example
+- \`input/example.txt\` - Example from problem
+- \`input/puzzle.txt\` - Your puzzle input
+- \`bin/solve\` - Run solution (copies to clipboard)
+
+## Workflow
+
+1. Implement \`solvePart1()\`
+2. Run \`make test\` until it passes
+3. Run \`bin/solve\` to get answer (auto-copied!)
+4. Uncomment Part 2 test, add expected output
+5. Implement \`solvePart2()\`, repeat
+EOF
+}
+
+# ============================================================================
+# Main Script
+# ============================================================================
+
+if [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]]; then
+    show_help
+fi
+
+# Determine year and day
+if [[ -n "$1" ]] && [[ -n "$2" ]]; then
+    YEAR=$1
+    DAY=$2
+else
+    read YEAR DAY < <(auto_detect_date)
+    print_info "Auto-detected: Year $YEAR, Day $DAY"
+fi
+
+# Validate
+if ! [[ "$YEAR" =~ ^[0-9]{4}$ ]] || (( YEAR < 2015 || YEAR > $(date +%Y) )); then
+    print_error "Invalid year: $YEAR"
+    exit 1
+fi
+
+if ! [[ "$DAY" =~ ^[0-9]+$ ]] || (( DAY < 1 || DAY > 25 )); then
+    print_error "Invalid day: $DAY"
+    exit 1
+fi
+
+PROJECT_NAME="aoc-$YEAR-day-$DAY"
+
+print_info "Creating: ${GREEN}$PROJECT_NAME${NC}"
+echo
+
+# Get cookie
+print_step "Getting AOC session cookie..."
+AOC_COOKIE=$(get_aoc_cookie)
+if [[ -z "$AOC_COOKIE" ]]; then
+    print_error "No session cookie"
+    exit 1
+fi
+print_success "Got session cookie"
+echo
+
+# Create project directory
+if [[ -d "$PROJECT_NAME" ]]; then
+    print_error "Directory '$PROJECT_NAME' already exists"
+    exit 1
+fi
+
+mkdir "$PROJECT_NAME"
+cd "$PROJECT_NAME"
+
+# Create structure
+print_step "Creating project structure..."
+create_project_structure
+generate_composer_json "$YEAR" "$DAY"
+generate_phpunit_xml
+generate_castor_php
+generate_makefile
+generate_gitignore
+generate_editorconfig
+print_success "Project structure created"
+echo
+
+# Fetch problem page
+print_step "Fetching problem page..."
+PAGE_HTML=$(fetch_page "$YEAR" "$DAY" "$AOC_COOKIE")
+if [[ -z "$PAGE_HTML" ]]; then
+    print_error "Failed to fetch problem page (empty response)"
+    exit 1
+fi
+print_success "Problem page fetched"
+echo
+
+# Extract examples using ollama
+print_step "Using AI to extract example input/output..."
+
+# Get the main article content (the problem description)
+PROBLEM_TEXT=$(echo "$PAGE_HTML" | perl -0777 -ne 'if (/<article[^>]*>(.*?)<\/article>/s) { print $1 }' | sed 's/<[^>]*>//g' | sed 's/&[^;]*;//g')
+
+# Use ollama to identify the example
+OLLAMA_PROMPT="You are analyzing an Advent of Code problem. Extract the FIRST example input and its expected output for Part 1.
+
+Problem description:
+$PROBLEM_TEXT
+
+Respond in this EXACT format (no additional text):
+INPUT:
+[paste the example input here]
+OUTPUT:
+[paste the expected output here]
+
+If you cannot find a clear example, respond with:
+NO_EXAMPLE_FOUND"
+
+print_info "Asking qwen3-coder:30b to identify example..."
+OLLAMA_RESPONSE=$(echo "$OLLAMA_PROMPT" | ollama run qwen3-coder:30b 2>/dev/null || echo "NO_EXAMPLE_FOUND")
+
+if [[ "$OLLAMA_RESPONSE" == "NO_EXAMPLE_FOUND" ]] || [[ -z "$OLLAMA_RESPONSE" ]]; then
+    print_warning "AI couldn't find example, falling back to manual selection"
+
+    # Fallback to manual selection
+    mapfile -t CODE_BLOCKS_RAW < <(extract_code_blocks "$PAGE_HTML" | awk 'BEGIN{RS="---BLOCK-SEPARATOR---"} NF{print; print "---BLOCK-SEPARATOR---"}' | sed '$ d')
+
+    CODE_BLOCKS=()
+    for i in "${!CODE_BLOCKS_RAW[@]}"; do
+        block=$(echo "${CODE_BLOCKS_RAW[$i]}" | sed 's/---BLOCK-SEPARATOR---$//')
+        if [[ "$block" =~ $'\n' ]] || [[ ${#block} -gt 20 ]]; then
+            CODE_BLOCKS+=("$block")
+        fi
+    done
+
+    if [[ ${#CODE_BLOCKS[@]} -eq 0 ]]; then
+        print_error "No examples found"
+        exit 1
+    fi
+
+    SELECTED_INPUT=$(select_from_list "Select example input:" "${CODE_BLOCKS[@]}")
+
+    mapfile -t OUTPUTS < <(extract_emphasized_outputs "$PAGE_HTML")
+    if [[ ${#OUTPUTS[@]} -eq 0 ]]; then
+        print_error "No outputs found"
+        exit 1
+    fi
+
+    SELECTED_OUTPUT=$(select_from_list "Select expected output:" "${OUTPUTS[@]}")
+else
+    # Parse ollama response
+    SELECTED_INPUT=$(echo "$OLLAMA_RESPONSE" | sed -n '/^INPUT:/,/^OUTPUT:/p' | sed '1d;$d' | sed '/^$/d')
+    SELECTED_OUTPUT=$(echo "$OLLAMA_RESPONSE" | sed -n '/^OUTPUT:/,$p' | sed '1d' | sed '/^$/d' | xargs)
+
+    # Detect type of output
+    if [[ "$SELECTED_OUTPUT" =~ ^[0-9]+$ ]]; then
+        OUTPUT_TYPE="int"
+    else
+        OUTPUT_TYPE="string"
+    fi
+
+    print_success "AI found example (output type: $OUTPUT_TYPE)"
+    echo "Input preview:" >&2
+    echo "$SELECTED_INPUT" | head -3 | sed 's/^/  /' >&2
+    echo "Expected output: $SELECTED_OUTPUT" >&2
+    echo >&2
+    read -p "Use this example? (y/n): " confirm </dev/tty
+
+    if [[ "$confirm" != "y" ]]; then
+        print_info "Falling back to manual selection"
+        mapfile -t CODE_BLOCKS_RAW < <(extract_code_blocks "$PAGE_HTML" | awk 'BEGIN{RS="---BLOCK-SEPARATOR---"} NF{print; print "---BLOCK-SEPARATOR---"}' | sed '$ d')
+
+        CODE_BLOCKS=()
+        for i in "${!CODE_BLOCKS_RAW[@]}"; do
+            block=$(echo "${CODE_BLOCKS_RAW[$i]}" | sed 's/---BLOCK-SEPARATOR---$//')
+            if [[ "$block" =~ $'\n' ]] || [[ ${#block} -gt 20 ]]; then
+                CODE_BLOCKS+=("$block")
+            fi
+        done
+
+        SELECTED_INPUT=$(select_from_list "Select example input:" "${CODE_BLOCKS[@]}")
+
+        mapfile -t OUTPUTS < <(extract_emphasized_outputs "$PAGE_HTML")
+        SELECTED_OUTPUT=$(select_from_list "Select expected output:" "${OUTPUTS[@]}")
+
+        # Detect type for manual selection
+        if [[ "$SELECTED_OUTPUT" =~ ^[0-9]+$ ]]; then
+            OUTPUT_TYPE="int"
+        else
+            OUTPUT_TYPE="string"
+        fi
+    fi
+fi
+
+print_success "Example selected (type: $OUTPUT_TYPE)"
+
+# Download puzzle input
+echo
+print_step "Downloading puzzle input..."
+if download_puzzle_input "$YEAR" "$DAY" "$AOC_COOKIE" "input/puzzle.txt"; then
+    print_success "Puzzle input downloaded"
+else
+    print_warning "Could not download puzzle input"
+fi
+
+# Save example
+if [[ -n "$SELECTED_INPUT" ]]; then
+    echo "$SELECTED_INPUT" > input/example.txt
+    print_success "Example saved"
+else
+    touch input/example.txt
+    print_warning "Created empty example.txt"
+fi
+echo
+
+# Generate files
+print_step "Generating code..."
+generate_problem_solver "$SELECTED_OUTPUT" "$OUTPUT_TYPE"
+generate_problem_solver_test "$SELECTED_OUTPUT" "$OUTPUT_TYPE"
+generate_solve_script
+generate_readme "$YEAR" "$DAY"
+print_success "Code generated"
+echo
+
+# Install dependencies
+print_step "Installing dependencies..."
+composer install --quiet
+print_success "Dependencies installed"
+echo
+
+# Git init
+print_step "Initializing git..."
+git init -q
+git add .
+git commit -q -m "AOC $YEAR day $DAY setup"
+print_success "Git initialized"
+echo
+
+# Success!
+print_success "Project ready!"
+echo
+print_info "Project: ${GREEN}$PROJECT_NAME${NC}"
+print_info "Problem: ${CYAN}https://adventofcode.com/$YEAR/day/$DAY${NC}"
+echo
+echo "Next steps:"
+echo "  cd $PROJECT_NAME"
+echo "  make dev        # Start coding (nvim + test watcher)"
+echo "  make test       # Run tests"
+echo "  bin/solve       # Get answer (auto-copied!)"
+echo

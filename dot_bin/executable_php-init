@@ -1,0 +1,419 @@
+#!/usr/bin/env bash
+
+set -e
+
+# ============================================================================
+# PHP Project Template Generator
+# ============================================================================
+# Creates a minimal PHP project with PHPUnit, Composer autoload, Castor test
+# watching, and tmux development environment.
+#
+# Usage:
+#   php-init [project-name]
+#   php-init --help
+# ============================================================================
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+print_error() {
+    echo -e "${RED}Error:${NC} $1" >&2
+}
+
+print_success() {
+    echo -e "${GREEN}✅${NC} $1"
+}
+
+print_info() {
+    echo -e "${BLUE}ℹ${NC}  $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}⚠${NC}  $1"
+}
+
+show_help() {
+    cat << EOF
+PHP Project Template Generator
+
+Usage:
+  php-init [project-name]
+  php-init --help
+
+Arguments:
+  project-name    Name of the project directory (default: current directory)
+
+Examples:
+  php-init my-project       Create new project in ./my-project
+  php-init                  Initialize project in current directory
+
+What gets created:
+  - composer.json (PHP 8.4, PHPUnit 11, Castor)
+  - phpunit.xml (PHPUnit configuration)
+  - castor.php (test + watch tasks)
+  - Makefile (dev workflow with tmux)
+  - src/ directory (App namespace)
+  - tests/ directory (App\\Tests namespace)
+  - Sample Example.php and ExampleTest.php
+  - .gitignore
+  - README.md
+
+Development workflow:
+  make dev     Start tmux with nvim (left) and test watcher (right)
+  make test    Run tests once
+  make watch   Watch and rerun tests on changes
+EOF
+    exit 0
+}
+
+# ============================================================================
+# Main Script Logic
+# ============================================================================
+
+# Parse arguments
+if [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]]; then
+    show_help
+fi
+
+# Determine project directory
+if [[ -n "$1" ]]; then
+    PROJECT_DIR="$1"
+    PROJECT_NAME="$(basename "$PROJECT_DIR")"
+else
+    PROJECT_DIR="."
+    PROJECT_NAME="$(basename "$(pwd)")"
+fi
+
+# Create project directory if needed
+if [[ "$PROJECT_DIR" != "." ]]; then
+    if [[ -d "$PROJECT_DIR" ]]; then
+        print_error "Directory '$PROJECT_DIR' already exists"
+        exit 1
+    fi
+    mkdir -p "$PROJECT_DIR"
+    cd "$PROJECT_DIR"
+fi
+
+# Check if directory is empty (except hidden files)
+if [[ -n "$(find . -maxdepth 1 -name '*' -not -name '.' -not -name '..' -not -name '.*' | head -n 1)" ]]; then
+    print_error "Directory is not empty. Please use an empty directory."
+    exit 1
+fi
+
+print_info "Initializing PHP project: ${GREEN}$PROJECT_NAME${NC}"
+echo
+
+# ============================================================================
+# Create Directory Structure
+# ============================================================================
+
+print_info "Creating directory structure..."
+mkdir -p src tests
+
+# ============================================================================
+# Generate composer.json
+# ============================================================================
+
+print_info "Generating composer.json..."
+cat > composer.json << 'EOF'
+{
+    "name": "vendor/project-name",
+    "description": "A PHP project with PHPUnit testing",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": "^8.4"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "App\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    }
+}
+EOF
+
+# ============================================================================
+# Generate phpunit.xml
+# ============================================================================
+
+print_info "Generating phpunit.xml..."
+cat > phpunit.xml << 'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         stopOnFailure="false">
+    <testsuites>
+        <testsuite name="default">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>src</directory>
+        </include>
+    </source>
+</phpunit>
+EOF
+
+# ============================================================================
+# Generate castor.php
+# ============================================================================
+
+print_info "Generating castor.php..."
+cat > castor.php << 'EOF'
+<?php
+
+use Castor\Attribute\AsTask;
+
+use function Castor\run;
+use function Castor\watch;
+use function Castor\notify;
+
+#[AsTask(description: 'Run tests')]
+function test(): void
+{
+    runPhpunit();
+}
+
+#[AsTask(description: 'Watch tests and rerun on changes')]
+function watchTests(): void
+{
+    runPhpunit();
+
+    $lastRun = time();
+    watch(['src', 'tests'], function () use (&$lastRun) {
+        if (time() - $lastRun < 1) {
+            return;
+        }
+
+        runPhpunit();
+        $lastRun = time();
+    });
+}
+
+function runPhpunit(): void
+{
+    run('clear && ./vendor/bin/phpunit');
+}
+EOF
+
+# ============================================================================
+# Generate Makefile
+# ============================================================================
+
+print_info "Generating Makefile..."
+cat > Makefile << 'EOF'
+.PHONY: dev test watch install
+
+dev:
+	@if tmux has-session -t dev 2>/dev/null; then \
+		tmux attach-session -t dev; \
+	else \
+		tmux new-session -s dev -d; \
+		tmux split-window -h -t dev; \
+		tmux send-keys -t dev:0.0 'nvim .' C-m; \
+		tmux send-keys -t dev:0.1 'castor watch-tests' C-m; \
+		tmux select-pane -t dev:0.0; \
+		tmux attach-session -t dev; \
+	fi
+
+test:
+	castor test
+
+watch:
+	castor watch-tests
+
+install:
+	composer install
+EOF
+
+# ============================================================================
+# Generate .gitignore
+# ============================================================================
+
+print_info "Generating .gitignore..."
+cat > .gitignore << 'EOF'
+/vendor/
+.phpunit.cache/
+.phpunit.result.cache
+composer.phar
+composer.lock
+.DS_Store
+.idea/
+*.swp
+*.swo
+*~
+EOF
+
+# ============================================================================
+# Generate README.md
+# ============================================================================
+
+print_info "Generating README.md..."
+cat > README.md << EOF
+# $PROJECT_NAME
+
+A PHP project with PHPUnit testing and Castor task automation.
+
+## Installation
+
+\`\`\`bash
+composer install
+\`\`\`
+
+## Development Workflow
+
+### Start Development Environment
+
+\`\`\`bash
+make dev
+\`\`\`
+
+This opens a tmux session with:
+- Left pane: Neovim
+- Right pane: Test watcher (automatically reruns tests on file changes)
+
+### Running Tests
+
+\`\`\`bash
+# Run tests once
+make test
+
+# Watch and rerun tests on changes
+make watch
+\`\`\`
+
+## Project Structure
+
+\`\`\`
+$PROJECT_NAME/
+├── src/               # Application code (App namespace)
+├── tests/             # Test code (App\\Tests namespace)
+├── vendor/            # Composer dependencies
+├── composer.json      # Dependencies and autoload configuration
+├── phpunit.xml        # PHPUnit configuration
+├── castor.php         # Task automation (test, watch)
+└── Makefile           # Development workflow commands
+\`\`\`
+
+## Requirements
+
+- PHP 8.4+
+- Composer
+- Castor (install globally: https://castor.jolicode.com/)
+- tmux (for \`make dev\`)
+- neovim (for \`make dev\`)
+EOF
+
+# ============================================================================
+# Generate Sample Source File
+# ============================================================================
+
+print_info "Generating src/Example.php..."
+cat > src/Example.php << 'EOF'
+<?php
+
+declare(strict_types=1);
+
+namespace App;
+
+class Example
+{
+    public function greet(string $name): string
+    {
+        return "Hello, {$name}!";
+    }
+}
+EOF
+
+# ============================================================================
+# Generate Sample Test File
+# ============================================================================
+
+print_info "Generating tests/ExampleTest.php..."
+cat > tests/ExampleTest.php << 'EOF'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests;
+
+use App\Example;
+use PHPUnit\Framework\TestCase;
+
+class ExampleTest extends TestCase
+{
+    public function testGreet(): void
+    {
+        $example = new Example();
+        $this->assertSame('Hello, World!', $example->greet('World'));
+    }
+}
+EOF
+
+# ============================================================================
+# Install Dependencies
+# ============================================================================
+
+echo
+print_info "Installing Composer dependencies..."
+composer install --quiet
+
+# ============================================================================
+# Initialize Git Repository
+# ============================================================================
+
+echo
+print_info "Initializing git repository..."
+git init -q
+git add .
+git commit -q -m "Initial commit: PHP project setup with PHPUnit and Castor"
+
+# ============================================================================
+# Success Message
+# ============================================================================
+
+echo
+print_success "PHP project initialized successfully!"
+echo
+print_info "Project: ${GREEN}$PROJECT_NAME${NC}"
+print_info "Location: ${GREEN}$(pwd)${NC}"
+echo
+echo "Next steps:"
+if [[ "$PROJECT_DIR" != "." ]]; then
+    echo "  cd $PROJECT_NAME"
+fi
+echo "  make dev        # Start development (nvim + test watcher)"
+echo "  make test       # Run tests once"
+echo "  make watch      # Watch and rerun tests"
+echo
+echo "Files created:"
+echo "  - composer.json (PHP 8.4, PHPUnit 11, Castor)"
+echo "  - phpunit.xml"
+echo "  - castor.php (test + watch tasks)"
+echo "  - Makefile (dev workflow)"
+echo "  - src/Example.php (sample code)"
+echo "  - tests/ExampleTest.php (sample test)"
+echo
