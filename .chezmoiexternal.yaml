@@ -27,3 +27,8 @@
   url: "https://github.com/tmux-plugins/tmux-battery"
   refreshPeriod: "24h"
 
+".complete-alias":
+  type: "git-repo"
+  url: "https://github.com/cykerway/complete-alias"
+  refreshPeriod: "168h"
+

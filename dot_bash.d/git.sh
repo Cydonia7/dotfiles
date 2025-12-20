@@ -244,3 +244,36 @@ gbd() {
 alias grb="git rebase"             # Rebase onto branch
 alias grbc="git rebase --continue" # Continue rebase
 alias grba="git rebase --abort"    # Abort rebase
+
+## Git completions
+# Source git completion first
+if [[ -f /usr/share/bash-completion/completions/git ]]; then
+  source /usr/share/bash-completion/completions/git
+fi
+
+# complete-alias for simple aliases (no pipes/chains)
+if [[ -f "$HOME/.complete-alias/complete_alias" ]]; then
+  source "$HOME/.complete-alias/complete_alias"
+  complete -F _complete_alias g gb gba gnb gcm gca gcan gd gdc gdh \
+    gf gfo gfa gpl gplo gps gpso gpsof grb grbc grba gs gsh gshh gst gstp
+fi
+
+# __git_complete for functions and complex aliases (pipes/chains break complete-alias)
+if type __git_complete &>/dev/null; then
+  _git_local_branches() { __gitcomp_direct "$(__git_heads "" "$cur" " ")"; }
+
+  # Functions
+  __git_complete gc _git_local_branches   # checkout local
+  __git_complete gcr _git_checkout        # checkout remote
+  __git_complete gbd _git_local_branches  # delete branch
+  __git_complete ga _git_add              # add files
+  __git_complete gr _git_restore          # restore files
+
+  # Complex aliases with pipes/chains
+  __git_complete gl _git_log              # git log | ...
+  __git_complete gla _git_log             # git log --all | ...
+  __git_complete gap _git_add             # git add -p && ...
+  __git_complete gam _git_add             # git add -u && ...
+  __git_complete gaa _git_add             # git add -A && ...
+  __git_complete gra _git_restore         # gr .
+fi
