@@ -60,58 +60,58 @@ matches:
   - trigger: ":prt"
     replace: |
       # Prompt : Résumé HTML Structuré
-      
+
       Transforme le contenu fourni (article, vidéo YouTube, podcast, etc.) en un résumé HTML complet, structuré et visuellement clair.
-      
+
       ## Format de sortie
-      
+
       Génère un fichier HTML autonome avec le style suivant :
-      
+
       ### Design
       - **Palette** : Sky blue (`#0ea5e9`) comme couleur primaire, gris slate (`#64748b`) comme accent secondaire, fond crème léger (`#fafafa`)
       - **Typographie** : Segoe UI / system-ui, line-height 1.8 pour une lecture confortable
       - **Layout** : Centré, max-width 800px, padding généreux
-      
+
       ### Structure du document
-      
+
       1. **Header centré** : Titre avec emoji contextuel + source/auteur + trait bleu de séparation
-      
+
       2. **Highlight box** (optionnel) : Si une statistique ou un chiffre clé résume le contenu, l'afficher en grand dans une box bleu clair
-      
+
       3. **Sections** : Une par concept/chapitre majeur, avec :
          - Icône dans un carré arrondi bleu clair
          - Titre + sous-titre en gris
          - Séparateur border-bottom entre sections
-      
+
       4. **Cards** pour les informations clés :
          - `.card-science` (bordure gauche bleue) : études, données, recherches
          - `.card-example` (bordure gauche grise, fond gris très clair) : exemples, citations, cas concrets
-      
+
       5. **Timeline/Steps** : Pour les étapes ou processus
          - Ligne verticale grise à gauche
          - Points bleus centrés sur la ligne (position: `left: calc(-1.5rem - 8px)`)
-      
+
       6. **Action box** : Fond bleu clair + bordure gauche bleue pour les points clés à retenir ou actions à faire
-      
+
       7. **Summary pills** : En bas, des pills arrondis récapitulant les points essentiels avec emoji + label
-      
+
       ### Règles de contenu
-      
+
       - **Exhaustif** : Ne rien oublier d'important, capturer tous les concepts clés
       - **Hiérarchisé** : Du plus important au plus détaillé
       - **Concis** : Phrases courtes, pas de fluff
       - **Tags** : Utiliser des `<span class="tag">` pour les chiffres/statistiques importants
       - **Pas de orange/jaune** : Ça ressemble à des warnings, rester sur bleu + gris
-      
+
       ### CSS à utiliser
-      
+
       ```css
       * {
           margin: 0;
           padding: 0;
           box-sizing: border-box;
       }
-      
+
       body {
           --primary: #0ea5e9;
           --primary-light: #e0f2fe;
@@ -130,28 +130,28 @@ matches:
           line-height: 1.8;
           padding: 2.5rem 2rem;
       }
-      
+
       .container {
           max-width: 800px;
           margin: 0 auto;
       }
-      
+
       header {
           text-align: center;
           margin-bottom: 2.5rem;
       }
-      
+
       h1 {
           font-size: 2rem;
           font-weight: 600;
           margin-bottom: 0.5rem;
       }
-      
+
       .meta {
           color: var(--muted);
           font-size: 0.95rem;
       }
-      
+
       .divider {
           width: 60px;
           height: 3px;
@@ -159,7 +159,7 @@ matches:
           margin: 1.5rem auto;
           border-radius: 2px;
       }
-      
+
       .highlight-box {
           background: linear-gradient(135deg, var(--primary-light) 0%, #f0f9ff 100%);
           padding: 1.25rem;
@@ -167,34 +167,34 @@ matches:
           margin-bottom: 2rem;
           text-align: center;
       }
-      
+
       .highlight-box .big-number {
           font-size: 2.5rem;
           font-weight: 700;
           color: var(--primary);
       }
-      
+
       .highlight-box .label {
           color: var(--muted);
       }
-      
+
       .section {
           margin-bottom: 2rem;
           padding-bottom: 2rem;
           border-bottom: 1px solid var(--border);
       }
-      
+
       .section:last-of-type {
           border-bottom: none;
       }
-      
+
       .section-header {
           display: flex;
           align-items: center;
           gap: 1rem;
           margin-bottom: 1rem;
       }
-      
+
       .section-icon {
           font-size: 1.8rem;
           width: 50px;
@@ -205,12 +205,12 @@ matches:
           align-items: center;
           justify-content: center;
       }
-      
+
       .section h2 {
           font-size: 1.25rem;
           font-weight: 600;
       }
-      
+
       .section h2 .subtitle {
           display: block;
           font-size: 0.85rem;
@@ -218,7 +218,7 @@ matches:
           color: var(--muted);
           margin-top: 0.2rem;
       }
-      
+
       .card {
           background: var(--card);
           border: 1px solid var(--border);
@@ -226,31 +226,31 @@ matches:
           padding: 1rem;
           margin: 1rem 0;
       }
-      
+
       .card-science {
           border-left: 3px solid var(--primary);
       }
-      
+
       .card-example {
           border-left: 3px solid var(--accent);
           background: var(--accent-light);
       }
-      
+
       .card h4 {
           font-size: 0.85rem;
           text-transform: uppercase;
           letter-spacing: 0.5px;
           margin-bottom: 0.5rem;
       }
-      
+
       .card-science h4 {
           color: var(--primary);
       }
-      
+
       .card-example h4 {
           color: var(--accent);
       }
-      
+
       .tag {
           display: inline-block;
           background: var(--primary-light);
@@ -260,18 +260,18 @@ matches:
           font-size: 0.85rem;
           font-weight: 600;
       }
-      
+
       .steps {
           margin: 1rem 0;
           padding-left: 1.5rem;
           border-left: 2px solid var(--border);
       }
-      
+
       .step {
           margin-bottom: 0.75rem;
           position: relative;
       }
-      
+
       .step::before {
           content: "";
           position: absolute;
@@ -283,7 +283,7 @@ matches:
           border-radius: 50%;
           border: 2px solid var(--bg);
       }
-      
+
       .action-box {
           background: var(--primary-light);
           padding: 1rem;
@@ -291,11 +291,11 @@ matches:
           margin-top: 1rem;
           border-left: 3px solid var(--primary);
       }
-      
+
       .action-box strong {
           color: var(--primary-dark);
       }
-      
+
       .summary {
           display: flex;
           flex-wrap: wrap;
@@ -303,7 +303,7 @@ matches:
           justify-content: center;
           margin-top: 2rem;
       }
-      
+
       .summary-pill {
           background: var(--card);
           border: 1px solid var(--border);
@@ -314,22 +314,19 @@ matches:
           gap: 0.5rem;
           font-size: 0.9rem;
       }
-      
+
       .summary-pill:hover {
           border-color: var(--primary);
           background: var(--primary-light);
       }
-      
+
       .summary-pill .icon {
           font-size: 1.1rem;
       }
       ```
-      
-      ## Exemple d'utilisation
-      
-      **Output** : Un fichier HTML complet et autonome suivant ce template.
-      
-      **Input** : 
-      
-      
 
+      ## Exemple d'utilisation
+
+      **Output** : Un fichier HTML complet et autonome suivant ce template.
+
+      **Input** :
