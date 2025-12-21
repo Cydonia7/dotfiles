@@ -59,69 +59,277 @@ matches:
   # Prompt for video transcription summary
   - trigger: ":prt"
     replace: |
-      # Rôle et Objectif Principal
+      # Prompt : Résumé HTML Structuré
+      
+      Transforme le contenu fourni (article, vidéo YouTube, podcast, etc.) en un résumé HTML complet, structuré et visuellement clair.
+      
+      ## Format de sortie
+      
+      Génère un fichier HTML autonome avec le style suivant :
+      
+      ### Design
+      - **Palette** : Sky blue (`#0ea5e9`) comme couleur primaire, gris slate (`#64748b`) comme accent secondaire, fond crème léger (`#fafafa`)
+      - **Typographie** : Segoe UI / system-ui, line-height 1.8 pour une lecture confortable
+      - **Layout** : Centré, max-width 800px, padding généreux
+      
+      ### Structure du document
+      
+      1. **Header centré** : Titre avec emoji contextuel + source/auteur + trait bleu de séparation
+      
+      2. **Highlight box** (optionnel) : Si une statistique ou un chiffre clé résume le contenu, l'afficher en grand dans une box bleu clair
+      
+      3. **Sections** : Une par concept/chapitre majeur, avec :
+         - Icône dans un carré arrondi bleu clair
+         - Titre + sous-titre en gris
+         - Séparateur border-bottom entre sections
+      
+      4. **Cards** pour les informations clés :
+         - `.card-science` (bordure gauche bleue) : études, données, recherches
+         - `.card-example` (bordure gauche grise, fond gris très clair) : exemples, citations, cas concrets
+      
+      5. **Timeline/Steps** : Pour les étapes ou processus
+         - Ligne verticale grise à gauche
+         - Points bleus centrés sur la ligne (position: `left: calc(-1.5rem - 8px)`)
+      
+      6. **Action box** : Fond bleu clair + bordure gauche bleue pour les points clés à retenir ou actions à faire
+      
+      7. **Summary pills** : En bas, des pills arrondis récapitulant les points essentiels avec emoji + label
+      
+      ### Règles de contenu
+      
+      - **Exhaustif** : Ne rien oublier d'important, capturer tous les concepts clés
+      - **Hiérarchisé** : Du plus important au plus détaillé
+      - **Concis** : Phrases courtes, pas de fluff
+      - **Tags** : Utiliser des `<span class="tag">` pour les chiffres/statistiques importants
+      - **Pas de orange/jaune** : Ça ressemble à des warnings, rester sur bleu + gris
+      
+      ### CSS à utiliser
+      
+      ```css
+      * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+      }
+      
+      body {
+          --primary: #0ea5e9;
+          --primary-light: #e0f2fe;
+          --primary-dark: #0284c7;
+          --accent: #64748b;
+          --accent-light: #f1f5f9;
+          --text: #1e293b;
+          --muted: #64748b;
+          --bg: #fafafa;
+          --card: #ffffff;
+          --border: #e2e8f0;
+          
+          font-family: 'Segoe UI', system-ui, sans-serif;
+          background: var(--bg);
+          color: var(--text);
+          line-height: 1.8;
+          padding: 2.5rem 2rem;
+      }
+      
+      .container {
+          max-width: 800px;
+          margin: 0 auto;
+      }
+      
+      header {
+          text-align: center;
+          margin-bottom: 2.5rem;
+      }
+      
+      h1 {
+          font-size: 2rem;
+          font-weight: 600;
+          margin-bottom: 0.5rem;
+      }
+      
+      .meta {
+          color: var(--muted);
+          font-size: 0.95rem;
+      }
+      
+      .divider {
+          width: 60px;
+          height: 3px;
+          background: var(--primary);
+          margin: 1.5rem auto;
+          border-radius: 2px;
+      }
+      
+      .highlight-box {
+          background: linear-gradient(135deg, var(--primary-light) 0%, #f0f9ff 100%);
+          padding: 1.25rem;
+          border-radius: 10px;
+          margin-bottom: 2rem;
+          text-align: center;
+      }
+      
+      .highlight-box .big-number {
+          font-size: 2.5rem;
+          font-weight: 700;
+          color: var(--primary);
+      }
+      
+      .highlight-box .label {
+          color: var(--muted);
+      }
+      
+      .section {
+          margin-bottom: 2rem;
+          padding-bottom: 2rem;
+          border-bottom: 1px solid var(--border);
+      }
+      
+      .section:last-of-type {
+          border-bottom: none;
+      }
+      
+      .section-header {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          margin-bottom: 1rem;
+      }
+      
+      .section-icon {
+          font-size: 1.8rem;
+          width: 50px;
+          height: 50px;
+          background: var(--primary-light);
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+      }
+      
+      .section h2 {
+          font-size: 1.25rem;
+          font-weight: 600;
+      }
+      
+      .section h2 .subtitle {
+          display: block;
+          font-size: 0.85rem;
+          font-weight: 400;
+          color: var(--muted);
+          margin-top: 0.2rem;
+      }
+      
+      .card {
+          background: var(--card);
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          padding: 1rem;
+          margin: 1rem 0;
+      }
+      
+      .card-science {
+          border-left: 3px solid var(--primary);
+      }
+      
+      .card-example {
+          border-left: 3px solid var(--accent);
+          background: var(--accent-light);
+      }
+      
+      .card h4 {
+          font-size: 0.85rem;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-bottom: 0.5rem;
+      }
+      
+      .card-science h4 {
+          color: var(--primary);
+      }
+      
+      .card-example h4 {
+          color: var(--accent);
+      }
+      
+      .tag {
+          display: inline-block;
+          background: var(--primary-light);
+          color: var(--primary-dark);
+          padding: 0.2rem 0.5rem;
+          border-radius: 4px;
+          font-size: 0.85rem;
+          font-weight: 600;
+      }
+      
+      .steps {
+          margin: 1rem 0;
+          padding-left: 1.5rem;
+          border-left: 2px solid var(--border);
+      }
+      
+      .step {
+          margin-bottom: 0.75rem;
+          position: relative;
+      }
+      
+      .step::before {
+          content: "";
+          position: absolute;
+          left: calc(-1.5rem - 8px);
+          top: 0.5rem;
+          width: 10px;
+          height: 10px;
+          background: var(--primary);
+          border-radius: 50%;
+          border: 2px solid var(--bg);
+      }
+      
+      .action-box {
+          background: var(--primary-light);
+          padding: 1rem;
+          border-radius: 8px;
+          margin-top: 1rem;
+          border-left: 3px solid var(--primary);
+      }
+      
+      .action-box strong {
+          color: var(--primary-dark);
+      }
+      
+      .summary {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.75rem;
+          justify-content: center;
+          margin-top: 2rem;
+      }
+      
+      .summary-pill {
+          background: var(--card);
+          border: 1px solid var(--border);
+          padding: 0.6rem 1rem;
+          border-radius: 50px;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-size: 0.9rem;
+      }
+      
+      .summary-pill:hover {
+          border-color: var(--primary);
+          background: var(--primary-light);
+      }
+      
+      .summary-pill .icon {
+          font-size: 1.1rem;
+      }
+      ```
+      
+      ## Exemple d'utilisation
+      
+      **Output** : Un fichier HTML complet et autonome suivant ce template.
+      
+      **Input** : 
+      
+      
 
-      Tu es un **Analyste de Contenu Expert et un Rédacteur Synthétique Adaptatif et Visuellement Clair**. Ta mission est de traiter une transcription de vidéo que je te fournirai, quelle que soit sa langue d'origine, et de produire un résumé en français extrêmement détaillé, organisé de manière logique, visuellement structuré et agréable à lire. L'objectif est de capturer toutes les informations essentielles sans redondance, en interprétant au mieux les éventuelles imperfections de la transcription.
-
-      # Contexte et Entrée
-
-      Je vais te fournir la transcription brute d'une vidéo. Cette transcription peut contenir :
-      *   Des horodatages (par exemple, `0:06`).
-      *   Des marqueurs de structure (par exemple, `Stream Start!`, `Timeline`, `Chapitres`, `Transcription`).
-      *   Le texte parlé.
-
-      La langue originale de la transcription sera principalement l'anglais ou le français, mais pourrait être autre.
-
-      # Tâches Détaillées
-
-      1.  **Prétraitement de la Transcription :**
-          *   Identifie et ignore les horodatages, les marqueurs de structure (`Stream Start!`, `Timeline`, `Chapitres`, `Transcription` et tout autre élément similaire non parlé).
-          *   Concentre-toi uniquement sur le texte parlé réel.
-          *   Identifie la langue principale du texte parlé. Si plusieurs langues sont significativement présentes, note-le.
-
-      2.  **Traduction (si nécessaire) :**
-          *   Si la langue principale identifiée n'est pas le français, traduis intégralement et fidèlement le contenu parlé en français. Conserve la nuance et le sens original.
-
-      3.  **Analyse Approfondie du Contenu :**
-          *   Lis attentivement l'intégralité de la transcription française (traduite ou originale).
-          *   Identifie le(s) sujet(s) principal(aux) et les thèmes abordés.
-          *   Détermine la ou les nature(s) de la vidéo (par exemple : tutoriel, critique, interview, débat, présentation, vlog, speedrun, recette, actualités, etc.). Sois attentif aux contenus hybrides pouvant mélanger plusieurs natures.
-          *   Si plusieurs intervenants sont clairement identifiables dans la transcription et qu'ils représentent des rôles, expertises ou perspectives distinctes (par exemple, un développeur et un expert en marketing), note ces distinctions pour une éventuelle mention dans le résumé si cela enrichit la compréhension. Ne te contente pas de lister des noms s'ils ont des rôles similaires ou si la distinction n'apporte pas de valeur ajoutée.
-          *   Extrais toutes les informations, arguments, explications, exemples, étapes, données clés, opinions exprimées, et conclusions. Sois exhaustif, l'objectif est de ne rien omettre d'important.
-          *   Identifie et filtre activement les éléments suivants pour les exclure du résumé final :
-              *   Les répétitions manifestes ou les points redondants qui n'apportent pas de nouvelle information.
-              *   Les mentions de sponsors, les appels à l'abonnement génériques ou les autopromotions non liées au contenu principal.
-              *   Les apartés ou "small talks" manifestement non pertinents pour la compréhension du sujet principal (sauf s'ils constituent une part significative et intentionnelle du style de la vidéo, comme un préambule humoristique long).
-          *   Si tu rencontres des passages dans la transcription qui semblent manifestement incohérents, incompréhensibles, ou qui pourraient résulter d'une erreur de transcription majeure :
-              *   Tente de les interpréter au mieux en fonction du contexte global.
-              *   Si une interprétation reste très incertaine, mentionne brièvement dans le résumé que ce passage est sujet à caution en raison d'une possible imperfection de la transcription (choisis la formulation la plus pertinente et discrète pour cet avertissement en fonction du contexte). N'invente pas d'information.
-
-      4.  **Structuration Dynamique et Visuelle du Résumé :**
-          *   Sur la base de la ou des nature(s) de la vidéo et des thèmes identifiés, définis une structure de résumé logique et claire. Le résumé ne doit PAS suivre une structure fixe prédéfinie, mais s'adapter au contenu.
-          *   **Pour les contenus hybrides (mélangeant plusieurs natures) :** Crée une section principale distincte pour chaque nature identifiée. Si nécessaire, utilise des sous-sections au sein de ces grandes sections pour organiser davantage le contenu.
-          *   **Titres et Emojis :** Utilise des titres et des sous-titres clairs (Markdown H2, H3, etc.) pour organiser les sections. **Ajoute un emoji pertinent et discret au début de chaque titre de section principale et, si pertinent, de sous-section pour améliorer l'attrait visuel et la compréhension rapide du thème de la section.**
-          *   **Mise en Forme Markdown Avancée pour la Clarté :** Pour rendre le résumé aussi clair et lisible que possible, utilise judicieusement les fonctionnalités Markdown lorsque cela est pertinent. Cela inclut, sans s'y limiter :
-              *   **Listes à puces ou numérotées :** Pour les séquences d'étapes, les listes d'éléments, les arguments multiples, les caractéristiques, etc.
-              *   **Tableaux :** Pour comparer des éléments, présenter des données structurées, ou lister des paires clé-valeur de manière concise.
-              *   **Mise en évidence :** Utilise le `**gras**` pour les termes clés ou les conclusions importantes, et l'`*italique*` pour l'emphase ou les titres d'œuvres.
-              *   `Blockquotes` : Pour citer des extraits significatifs si nécessaire (bien que le but soit de résumer, un très court extrait particulièrement marquant pourrait être pertinent).
-              *   L'utilisation de ces éléments doit toujours servir la clarté et ne pas surcharger le texte.
-          *   **Exemples de structures possibles (non exhaustif, à adapter dynamiquement) :**
-              *   **Pour une interview/discussion avec intervenants aux rôles distincts :** 🎙️ Introduction du sujet et des intervenants, 🗣️ Thèmes principaux abordés, 🤝 Points de convergence/divergence, 🏁 Conclusions.
-              *   **Pour un tutoriel/recette :** 🎯 Objectif/Résultat, 🛠️ Matériel/Ingrédients, 🔢 Étapes clés, ✨ Conseils/Astuces, ✅ Résultat final.
-              *   **Pour une analyse/critique :** 🧐 Objet analysé, 💡 Thèse/Avis principal, 📊 Arguments et Exemples, 👍 Points forts / 👎 Points faibles, ✍️ Conclusion/Recommandation.
-
-      5.  **Rédaction du Résumé Détaillé en Français :**
-          *   Rédige le résumé en français en suivant la structure et les directives de mise en forme que tu as définies.
-          *   Le ton doit être neutre et objectif pour les parties informatives, mais peut refléter le ton de la vidéo (ex: humoristique) si cela constitue une caractéristique majeure du contenu et que cela est pertinent pour le résumé.
-          *   Assure-toi que le résumé est **extrêmement détaillé**. Chaque point important, chaque nuance significative, chaque explication nécessaire à la compréhension doit être présente. Il n'y a pas de limite de mots ; l'exhaustivité des informations pertinentes est la priorité, tout en éliminant les doublons.
-          *   Intègre les avertissements concernant les possibles erreurs de transcription comme spécifié à l'étape 3, en choisissant la formulation la plus pertinente.
-          *   Veille à ce que le langage soit clair, concis (malgré le niveau de détail) et professionnel, et que la présentation visuelle (emojis, Markdown) facilite la lecture.
-
-      # Format de Réponse Attendue
-
-      1.  **🌐 Langue(s) Originale(s) Identifiée(s) :** (Indique la ou les langues détectées dans la transcription).
-      2.  **🎬 Nature(s) de la Vidéo Identifiée(s) :** (Indique le ou les types de vidéo que tu as déterminé, ex: "Discussion informelle sur les jeux vidéo et la technologie, incluant des apartés personnels et une section principale sur le design de jeu" ou "Podcast analysant les stratégies commerciales avec des exemples concrets").
-      3.  **📝 Résumé Détaillé et Structuré en Français :** (Le résumé lui-même, utilisant des titres avec emojis, des sous-titres, des listes, des tableaux, et autres éléments Markdown pertinents, ainsi que des avertissements si nécessaire).
-
-      # Entrée Utilisateur
