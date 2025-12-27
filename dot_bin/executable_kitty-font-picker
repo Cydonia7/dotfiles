@@ -9,7 +9,6 @@ set -euo pipefail
 # Configuration
 CHEZMOI_CONFIG="${HOME}/.config/chezmoi/chezmoi.yaml"
 BACKUP_FILE="${CHEZMOI_CONFIG}.backup-$(date +%s)"
-TEMP_FILE=$(mktemp)
 
 # Colors
 readonly RED='\033[0;31m'
@@ -20,10 +19,7 @@ readonly NC='\033[0m' # No Color
 
 # Cleanup function
 cleanup() {
-    local exit_code=$?
-    rm -f "$TEMP_FILE"
-
-    if [ $exit_code -ne 0 ]; then
+    if [ $? -ne 0 ]; then
         echo -e "${RED}⚠️  Unexpected exit. Backup preserved at: ${BACKUP_FILE}${NC}"
     fi
 }
@@ -100,6 +96,11 @@ apply_and_reload() {
         return 1
     fi
 
+    reload_kitty
+}
+
+# Reload kitty configuration
+reload_kitty() {
     # Reload kitty - SIGUSR1 triggers config reload
     if pgrep -x kitty > /dev/null; then
         pkill -SIGUSR1 kitty 2>/dev/null && log_success "Kitty configuration reloaded" || {
@@ -112,6 +113,26 @@ apply_and_reload() {
 
     sleep 0.3  # Brief pause for reload
 }
+
+# Restore kitty.conf from chezmoi (undo preview)
+restore_from_chezmoi() {
+    chezmoi apply --force ~/.config/kitty/kitty.conf 2>/dev/null
+    reload_kitty
+}
+
+# Live preview helper - called by fzf on focus change
+# Usage: preview_live <setting> <value>
+preview_live() {
+    local setting="$1"
+    local value="$2"
+    local kitty_conf="${HOME}/.config/kitty/kitty.conf"
+
+    sed -i "s|^${setting} .*|${setting} ${value}|" "$kitty_conf"
+    pkill -SIGUSR1 kitty 2>/dev/null &
+}
+
+# Export for fzf subshell
+export -f preview_live
 
 # Get available font families
 get_font_families() {
@@ -139,20 +160,31 @@ show_banner() {
 
 select_font_family() {
     local current_font=$(read_yaml_value 'kitty.font')
+    local original_font="$current_font"
 
     echo -e "${BLUE}ℹ${NC} Loading fonts... (current: ${YELLOW}$current_font${NC})"
     local fonts=$(get_font_families)
 
-    local selected_font=$(echo "$fonts" | gum filter \
-        --placeholder "Type to search..." \
-        --header "🔍 Select Font Family" \
+    # Use fzf with live preview on arrow navigation
+    local selected_font=$(echo "$fonts" | fzf \
+        --header "🔍 Select Font Family (↑↓ to preview, Enter to select, Esc to cancel)" \
+        --prompt "❯ " \
         --height 20 \
-        --prompt "❯ ")
+        --layout reverse \
+        --bind 'focus:execute-silent:preview_live font_family {}' \
+        --query "" \
+        --select-1 \
+        --exit-0)
 
-    if [ -n "$selected_font" ] && [ "$selected_font" != "$current_font" ]; then
+    if [ -n "$selected_font" ]; then
+        # User selected a font - save to chezmoi config
         write_yaml_value "kitty.font" "$selected_font"
-        echo -e "${GREEN}✓${NC} Font: ${YELLOW}$current_font${NC} → ${GREEN}$selected_font${NC}"
+        echo -e "${GREEN}✓${NC} Font saved: ${YELLOW}$original_font${NC} → ${GREEN}$selected_font${NC}"
         apply_and_reload
+    else
+        # User cancelled - restore original
+        restore_from_chezmoi
+        echo -e "${BLUE}ℹ${NC} Restored: ${YELLOW}$original_font${NC}"
     fi
 }
 
@@ -160,7 +192,17 @@ select_font_style() {
     local style_type=$1
     local yaml_key=$2
     local current_style=$(read_yaml_value "$yaml_key")
+    local original_style="$current_style"
     local current_font=$(read_yaml_value 'kitty.font')
+
+    # Map style type to kitty.conf setting name
+    local kitty_setting
+    case "$style_type" in
+        "Normal") kitty_setting="font_family" ;;
+        "Bold") kitty_setting="bold_font" ;;
+        "Italic") kitty_setting="italic_font" ;;
+        "Bold+Italic") kitty_setting="bold_italic_font" ;;
+    esac
 
     echo -e "${BLUE}ℹ${NC} Loading styles for ${YELLOW}$current_font${NC}... (current: ${YELLOW}$current_style${NC})"
     local styles=$(get_font_styles "$current_font")
@@ -169,57 +211,93 @@ select_font_style() {
         styles=$(echo -e "Regular\nBold\nItalic\nBold Italic\nLight\nMedium\nSemiBold\nExtraLight\nBlack")
     fi
 
-    local selected_style=$(echo "$styles" | gum filter \
-        --placeholder "Type to search..." \
-        --header "🔍 Select $style_type Style" \
+    # Use fzf with live preview on arrow navigation
+    local selected_style=$(echo "$styles" | fzf \
+        --header "🔍 Select $style_type Style (↑↓ to preview, Enter to select, Esc to cancel)" \
+        --prompt "❯ " \
         --height 15 \
-        --prompt "❯ ")
+        --layout reverse \
+        --bind "focus:execute-silent:preview_live $kitty_setting {}" \
+        --query "" \
+        --select-1 \
+        --exit-0)
 
-    if [ -n "$selected_style" ] && [ "$selected_style" != "$current_style" ]; then
+    if [ -n "$selected_style" ]; then
+        # User selected a style - save to chezmoi config
         write_yaml_value "$yaml_key" "$selected_style"
-        echo -e "${GREEN}✓${NC} Style: ${YELLOW}$current_style${NC} → ${GREEN}$selected_style${NC}"
+        echo -e "${GREEN}✓${NC} $style_type style saved: ${YELLOW}$original_style${NC} → ${GREEN}$selected_style${NC}"
         apply_and_reload
+    else
+        # User cancelled - restore original
+        restore_from_chezmoi
+        echo -e "${BLUE}ℹ${NC} Restored: ${YELLOW}$original_style${NC}"
     fi
 }
 
 adjust_font_size() {
     local current_size=$(read_yaml_value 'kitty.fontSize')
+    local original_size="$current_size"
 
-    local new_size=$(gum input \
-        --placeholder "$current_size" \
-        --header "📏 Enter Font Size" \
+    # Generate common font sizes
+    local sizes=$(printf '%s\n' 8 9 10 11 12 13 14 15 16 17 18 19 20 22 24 26 28 32 36)
+
+    # Use fzf with live preview on arrow navigation (type custom size or select from list)
+    local new_size=$(echo "$sizes" | fzf \
+        --header "📏 Font Size (↑↓ to preview, type custom size, Enter to select)" \
         --prompt "❯ " \
-        --value "$current_size" \
-        --width 20)
+        --height 15 \
+        --layout reverse \
+        --print-query \
+        --bind 'focus:execute-silent:preview_live font_size {}' \
+        --query "$current_size" | tail -1)
 
-    if [ -n "$new_size" ] && [ "$new_size" != "$current_size" ]; then
-        if [[ "$new_size" =~ ^[0-9]+\.?[0-9]*$ ]]; then
-            write_yaml_value "kitty.fontSize" "$new_size"
-            echo -e "${GREEN}✓${NC} Size: ${YELLOW}${current_size}${NC} → ${GREEN}${new_size}${NC}"
-            apply_and_reload
-        else
+    if [ -n "$new_size" ]; then
+        # Validate input
+        if ! [[ "$new_size" =~ ^[0-9]+\.?[0-9]*$ ]]; then
             echo -e "${RED}✗${NC} Invalid size (must be a number)"
-            sleep 1.5
+            restore_from_chezmoi
+            return
         fi
+        # User selected a size - save to chezmoi config
+        write_yaml_value "kitty.fontSize" "$new_size"
+        echo -e "${GREEN}✓${NC} Size saved: ${YELLOW}${original_size}${NC} → ${GREEN}${new_size}${NC}"
+        apply_and_reload
+    else
+        # User cancelled - restore original
+        restore_from_chezmoi
+        echo -e "${BLUE}ℹ${NC} Restored: ${YELLOW}$original_size${NC}"
     fi
 }
 
 adjust_cell_dimension() {
-    local dimension=$1  # "height" or "width"
-    local yaml_key="kitty.cell${dimension^}"
+    local dimension=$1  # "Height" or "Width"
+    local yaml_key="kitty.cell${dimension}"
     local current_value=$(read_yaml_value "$yaml_key")
+    local original_value="$current_value"
+    local kitty_setting="modify_font cell_${dimension,,}"
 
-    local new_value=$(gum input \
-        --placeholder "$current_value" \
-        --header "📐 Enter Cell $dimension (e.g., 110%)" \
+    # Generate common cell dimension percentages
+    local values=$(printf '%s\n' 90% 95% 100% 105% 110% 115% 120% 125% 130% 140% 150%)
+
+    # Use fzf with live preview on arrow navigation
+    local new_value=$(echo "$values" | fzf \
+        --header "📐 Cell $dimension (↑↓ to preview, type custom value, Enter to select)" \
         --prompt "❯ " \
-        --value "$current_value" \
-        --width 20)
+        --height 15 \
+        --layout reverse \
+        --print-query \
+        --bind "focus:execute-silent:preview_live '$kitty_setting' {}" \
+        --query "$current_value" | tail -1)
 
-    if [ -n "$new_value" ] && [ "$new_value" != "$current_value" ]; then
+    if [ -n "$new_value" ]; then
+        # User selected a value - save to chezmoi config
         write_yaml_value "$yaml_key" "$new_value"
-        echo -e "${GREEN}✓${NC} Cell $dimension: ${YELLOW}${current_value}${NC} → ${GREEN}${new_value}${NC}"
+        echo -e "${GREEN}✓${NC} Cell $dimension saved: ${YELLOW}${original_value}${NC} → ${GREEN}${new_value}${NC}"
         apply_and_reload
+    else
+        # User cancelled - restore original
+        restore_from_chezmoi
+        echo -e "${BLUE}ℹ${NC} Restored: ${YELLOW}$original_value${NC}"
     fi
 }
 
@@ -305,7 +383,7 @@ main_menu() {
 
 main() {
     # Check dependencies
-    for cmd in gum yq chezmoi fc-list; do
+    for cmd in gum yq chezmoi fc-list fzf; do
         if ! command -v $cmd &> /dev/null; then
             log_error "Required command not found: $cmd"
             exit 1
