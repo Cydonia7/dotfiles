@@ -11,8 +11,8 @@ import subprocess
 import time
 
 TARGET_DEVICE_ADDRESSES = ["C8:7B:23:5C:7C:27", "30:D8:75:09:A1:E9"]
-TARGET_SINK_FORMAT = "bluez_output.{address}.1"
-DEFAULT_SINK = "alsa_output.usb-C-Media_Electronics_Inc._USB_Audio_Device-00.iec958-stereo"
+TARGET_SINK_FORMAT = "bluez_output.{address}"
+DEFAULT_SINK = "alsa_output.usb-C-Media_Electronics_Inc._USB_Audio_Device-00.analog-stereo"
 
 def sink_exists(sink_name):
     """Return True if the sink exists in the current PulseAudio sinks."""
@@ -82,9 +82,7 @@ def properties_changed(interface, changed, invalidated, path):
         return  # Not one of our target devices.
 
     if connected:
-        # Generate sink name using the device's address, replacing ":" with "_".
-        formatted_address = address.replace(":", "_")
-        sink_name = TARGET_SINK_FORMAT.format(address=formatted_address)
+        sink_name = TARGET_SINK_FORMAT.format(address=address)
         switch_sink(sink_name)
     else:
         switch_sink(DEFAULT_SINK)
