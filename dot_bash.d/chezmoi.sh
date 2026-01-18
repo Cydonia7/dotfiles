@@ -1,5 +1,5 @@
 alias c="chezmoi" # Alias for chezmoi
-alias cc="chezmoi cd" # Go into chezmoi's directory
+alias cg="chezmoi cd" # Go into chezmoi's directory
 alias cu="chezmoi update && source $HOME/.bashrc" # Pull changes from the repository, apply and reload
 alias cad="chezmoi add" # Add file to chezmoi
 alias ca="chezmoi apply && source $HOME/.bashrc" # Apply changes and reload bashrc
