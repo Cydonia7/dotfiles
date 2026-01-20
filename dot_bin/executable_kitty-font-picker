@@ -9,6 +9,7 @@ set -euo pipefail
 # Configuration
 CHEZMOI_CONFIG="${HOME}/.config/chezmoi/chezmoi.yaml"
 BACKUP_FILE="${CHEZMOI_CONFIG}.backup-$(date +%s)"
+PRESETS_DIR="${HOME}/.config/kitty-font-picker/presets"
 
 # Colors
 readonly RED='\033[0;31m'
@@ -133,6 +134,225 @@ preview_live() {
 
 # Export for fzf subshell
 export -f preview_live
+
+# ============================================================================
+# Preset Functions
+# ============================================================================
+
+# Ensure presets directory exists
+ensure_presets_dir() {
+    mkdir -p "$PRESETS_DIR"
+}
+
+# Get all preset names (without .yaml extension)
+list_presets() {
+    ensure_presets_dir
+    find "$PRESETS_DIR" -maxdepth 1 -name "*.yaml" -type f -exec basename {} .yaml \; 2>/dev/null | sort
+}
+
+# Get current settings as YAML
+get_current_settings_yaml() {
+    cat <<EOF
+font: $(read_yaml_value 'kitty.font')
+fontSize: $(read_yaml_value 'kitty.fontSize')
+cellHeight: $(read_yaml_value 'kitty.cellHeight')
+cellWidth: $(read_yaml_value 'kitty.cellWidth')
+styleNormal: $(read_yaml_value 'kitty.styleNormal')
+styleBold: $(read_yaml_value 'kitty.styleBold')
+styleItalic: $(read_yaml_value 'kitty.styleItalic')
+styleBoldItalic: $(read_yaml_value 'kitty.styleBoldItalic')
+EOF
+}
+
+# Save current settings as a preset
+save_preset() {
+    ensure_presets_dir
+
+    local name=$(gum input --placeholder "Preset name (e.g., coding, presentation)" --header "💾 Save Preset")
+
+    if [[ -z "$name" ]]; then
+        log_info "Cancelled"
+        return
+    fi
+
+    # Sanitize name (replace spaces with dashes, remove special chars)
+    name=$(echo "$name" | tr ' ' '-' | tr -cd '[:alnum:]-_')
+    local preset_file="${PRESETS_DIR}/${name}.yaml"
+
+    if [[ -f "$preset_file" ]]; then
+        if ! gum confirm "Preset '$name' already exists. Overwrite?"; then
+            log_info "Cancelled"
+            return
+        fi
+    fi
+
+    get_current_settings_yaml > "$preset_file"
+}
+
+# Apply a preset file to chezmoi config
+apply_preset_file() {
+    local preset_file="$1"
+
+    if [[ ! -f "$preset_file" ]]; then
+        log_error "Preset file not found: $preset_file"
+        return 1
+    fi
+
+    # Read each value from preset and write to chezmoi config
+    local font=$(yq '.font' "$preset_file" 2>/dev/null | sed 's/"//g')
+    local fontSize=$(yq '.fontSize' "$preset_file" 2>/dev/null | sed 's/"//g')
+    local cellHeight=$(yq '.cellHeight' "$preset_file" 2>/dev/null | sed 's/"//g')
+    local cellWidth=$(yq '.cellWidth' "$preset_file" 2>/dev/null | sed 's/"//g')
+    local styleNormal=$(yq '.styleNormal' "$preset_file" 2>/dev/null | sed 's/"//g')
+    local styleBold=$(yq '.styleBold' "$preset_file" 2>/dev/null | sed 's/"//g')
+    local styleItalic=$(yq '.styleItalic' "$preset_file" 2>/dev/null | sed 's/"//g')
+    local styleBoldItalic=$(yq '.styleBoldItalic' "$preset_file" 2>/dev/null | sed 's/"//g')
+
+    [[ -n "$font" && "$font" != "null" ]] && write_yaml_value "kitty.font" "$font"
+    [[ -n "$fontSize" && "$fontSize" != "null" ]] && write_yaml_value "kitty.fontSize" "$fontSize"
+    [[ -n "$cellHeight" && "$cellHeight" != "null" ]] && write_yaml_value "kitty.cellHeight" "$cellHeight"
+    [[ -n "$cellWidth" && "$cellWidth" != "null" ]] && write_yaml_value "kitty.cellWidth" "$cellWidth"
+    [[ -n "$styleNormal" && "$styleNormal" != "null" ]] && write_yaml_value "kitty.styleNormal" "$styleNormal"
+    [[ -n "$styleBold" && "$styleBold" != "null" ]] && write_yaml_value "kitty.styleBold" "$styleBold"
+    [[ -n "$styleItalic" && "$styleItalic" != "null" ]] && write_yaml_value "kitty.styleItalic" "$styleItalic"
+    [[ -n "$styleBoldItalic" && "$styleBoldItalic" != "null" ]] && write_yaml_value "kitty.styleBoldItalic" "$styleBoldItalic"
+}
+
+# Preview helper for presets - applies preset live
+preview_preset_live() {
+    local preset_name="$1"
+    local preset_file="${PRESETS_DIR}/${preset_name}.yaml"
+    local kitty_conf="${HOME}/.config/kitty/kitty.conf"
+
+    if [[ ! -f "$preset_file" ]]; then
+        return
+    fi
+
+    # Read preset values
+    local font=$(yq '.font' "$preset_file" 2>/dev/null | sed 's/"//g')
+    local fontSize=$(yq '.fontSize' "$preset_file" 2>/dev/null | sed 's/"//g')
+    local cellHeight=$(yq '.cellHeight' "$preset_file" 2>/dev/null | sed 's/"//g')
+    local cellWidth=$(yq '.cellWidth' "$preset_file" 2>/dev/null | sed 's/"//g')
+    local styleNormal=$(yq '.styleNormal' "$preset_file" 2>/dev/null | sed 's/"//g')
+
+    # Apply to kitty.conf directly for live preview (using kitty's family='...' style=... format)
+    [[ -n "$font" && "$font" != "null" ]] && sed -i "s|^font_family.*|font_family      family='$font' style=$styleNormal|" "$kitty_conf"
+    [[ -n "$fontSize" && "$fontSize" != "null" ]] && sed -i "s|^font_size.*|font_size $fontSize|" "$kitty_conf"
+    [[ -n "$cellHeight" && "$cellHeight" != "null" ]] && sed -i "s|^modify_font cell_height.*|modify_font cell_height $cellHeight|" "$kitty_conf"
+    [[ -n "$cellWidth" && "$cellWidth" != "null" ]] && sed -i "s|^modify_font cell_width.*|modify_font cell_width $cellWidth|" "$kitty_conf"
+
+    pkill -SIGUSR1 kitty 2>/dev/null &
+}
+
+# Export for fzf subshell
+export PRESETS_DIR
+export -f preview_preset_live
+
+# Load a preset with fzf preview
+load_preset() {
+    local presets=$(list_presets)
+
+    if [[ -z "$presets" ]]; then
+        log_warn "No presets found. Save one first!"
+        return
+    fi
+
+    local original_font=$(read_yaml_value 'kitty.font')
+
+    # fzf with YAML preview and live kitty preview
+    local selected=$(echo "$presets" | fzf \
+        --header "📂 Load Preset (↑↓ to preview, Enter to load, Esc to cancel)" \
+        --prompt "❯ " \
+        --height 15 \
+        --layout reverse \
+        --preview "cat '${PRESETS_DIR}/{}.yaml' 2>/dev/null | head -20" \
+        --preview-window "right:50%:wrap" \
+        --bind "focus:execute-silent:preview_preset_live {}")
+
+    if [[ -n "$selected" ]]; then
+        local preset_file="${PRESETS_DIR}/${selected}.yaml"
+        apply_preset_file "$preset_file"
+        apply_and_reload
+    else
+        # User cancelled - restore original
+        restore_from_chezmoi
+    fi
+}
+
+# Delete presets with multi-select
+delete_presets() {
+    local presets=$(list_presets)
+
+    if [[ -z "$presets" ]]; then
+        log_warn "No presets to delete"
+        return
+    fi
+
+    local selected=$(echo "$presets" | fzf \
+        --header "🗑️  Select presets to delete (Tab to select, Enter to confirm)" \
+        --prompt "❯ " \
+        --height 15 \
+        --layout reverse \
+        --multi \
+        --preview "cat '${PRESETS_DIR}/{}.yaml' 2>/dev/null")
+
+    if [[ -z "$selected" ]]; then
+        return
+    fi
+
+    local count=$(echo "$selected" | wc -l)
+
+    if gum confirm "Delete $count preset(s)?"; then
+        echo "$selected" | while read -r preset; do
+            rm -f "${PRESETS_DIR}/${preset}.yaml"
+        done
+    fi
+}
+
+# Presets submenu
+presets_menu() {
+    local last_choice=""
+
+    while true; do
+        clear
+        show_banner
+        local choice=$(gum choose \
+            "💾 Save current as preset" \
+            "📂 Load preset" \
+            "🗑️  Delete presets" \
+            "───────────────────────" \
+            "← Back to main menu" \
+            --height 8 \
+            --header "📦 Presets" \
+            ${last_choice:+--selected="$last_choice"})
+
+        case "$choice" in
+            "💾 Save current as preset")
+                last_choice="$choice"
+                save_preset
+                ;;
+            "📂 Load preset")
+                last_choice="$choice"
+                load_preset
+                ;;
+            "🗑️  Delete presets")
+                last_choice="$choice"
+                delete_presets
+                ;;
+            "───────────────────────")
+                # Separator - do nothing, will refresh
+                continue
+                ;;
+            "← Back to main menu"|"")
+                return
+                ;;
+        esac
+    done
+}
+
+# ============================================================================
+# Font Functions
+# ============================================================================
 
 # Get available font families
 get_font_families() {
@@ -303,6 +523,8 @@ adjust_cell_dimension() {
 
 # Main menu with inline values
 main_menu() {
+    local last_choice=""
+
     while true; do
         show_banner
 
@@ -316,6 +538,9 @@ main_menu() {
         local italic=$(read_yaml_value 'kitty.styleItalic')
         local bolditalic=$(read_yaml_value 'kitty.styleBoldItalic')
 
+        # Count presets for display
+        local preset_count=$(list_presets | wc -l)
+
         # Build menu with current values embedded
         local choice=$(gum choose \
             "📝 Font Family         → $font" \
@@ -326,36 +551,51 @@ main_menu() {
             "🔤 Bold Style          → $bold" \
             "🔤 Italic Style        → $italic" \
             "🔤 Bold+Italic Style   → $bolditalic" \
-            "" \
+            "───────────────────────────────────" \
+            "📦 Presets             → $preset_count saved" \
+            "───────────────────────────────────" \
             "💾 Save and Exit" \
             "❌ Discard and Exit" \
-            --height 16 \
-            --header "Select setting to modify:")
+            --height 18 \
+            --header "Select setting to modify:" \
+            ${last_choice:+--selected="$last_choice"})
 
         case "$choice" in
             "📝 Font Family"*)
+                last_choice="$choice"
                 select_font_family
                 ;;
             "📏 Font Size"*)
+                last_choice="$choice"
                 adjust_font_size
                 ;;
             "📐 Cell Height"*)
+                last_choice="$choice"
                 adjust_cell_dimension "Height"
                 ;;
             "📐 Cell Width"*)
+                last_choice="$choice"
                 adjust_cell_dimension "Width"
                 ;;
             "🔤 Normal Style"*)
+                last_choice="$choice"
                 select_font_style "Normal" "kitty.styleNormal"
                 ;;
             "🔤 Bold Style"*)
+                last_choice="$choice"
                 select_font_style "Bold" "kitty.styleBold"
                 ;;
             "🔤 Italic Style"*)
+                last_choice="$choice"
                 select_font_style "Italic" "kitty.styleItalic"
                 ;;
             "🔤 Bold+Italic Style"*)
+                last_choice="$choice"
                 select_font_style "Bold+Italic" "kitty.styleBoldItalic"
+                ;;
+            "📦 Presets"*)
+                last_choice="$choice"
+                presets_menu
                 ;;
             "💾 Save and Exit")
                 clear
@@ -370,8 +610,17 @@ main_menu() {
                 log_info "Changes discarded"
                 exit 0
                 ;;
+            "───────────────────────────────────")
+                # Separator - do nothing, will refresh
+                continue
+                ;;
             "")
-                # Empty line selected, just refresh
+                # Esc pressed, treat as discard
+                clear
+                restore_backup
+                apply_and_reload
+                log_info "Changes discarded"
+                exit 0
                 ;;
         esac
     done
