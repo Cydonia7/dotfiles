@@ -82,3 +82,102 @@ alias st='~/.bin/series-tracker' # TV series progress tracker
 ## reMarkable Upload
 alias utr='~/.bin/upload-to-remarkable.sh' # Upload files to reMarkable tablet
 
+## Next Train
+alias nt='~/Projects/cydo/tools/next-train/next-train.sh' # Next metro departures
+
+## Minecraft
+mcplayers() {
+    local host="51.79.78.207"
+    local port="25565"
+    local address="${host}:${port}"
+
+    python3 - "$host" "$port" <<'PY'
+import json
+import socket
+import struct
+import sys
+
+host = sys.argv[1]
+port = int(sys.argv[2])
+address = f"{host}:{port}"
+
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.settimeout(3.0)
+
+
+def pack_varint(value: int) -> bytes:
+    out = b""
+    while True:
+        byte = value & 0x7F
+        value >>= 7
+        if value:
+            out += struct.pack("B", byte | 0x80)
+        else:
+            out += struct.pack("B", byte)
+            return out
+
+
+def unpack_varint(stream) -> int:
+    num = 0
+    for i in range(5):
+        byte = stream.recv(1)
+        if not byte:
+            raise ConnectionError("Unexpected EOF")
+        value = byte[0]
+        num |= (value & 0x7F) << (7 * i)
+        if not (value & 0x80):
+            return num
+    raise ValueError("Varint too long")
+
+
+try:
+    sock.connect((host, port))
+
+    protocol = 754
+    host_bytes = host.encode("utf-8")
+    handshake = (
+        pack_varint(0x00)
+        + pack_varint(protocol)
+        + pack_varint(len(host_bytes))
+        + host_bytes
+        + struct.pack(">H", port)
+        + pack_varint(1)
+    )
+    sock.sendall(pack_varint(len(handshake)) + handshake)
+
+    request = pack_varint(0x00)
+    sock.sendall(pack_varint(len(request)) + request)
+
+    length = unpack_varint(sock)
+    packet_id = unpack_varint(sock)
+    if packet_id != 0x00:
+        raise ValueError("Invalid status packet")
+
+    json_length = unpack_varint(sock)
+    payload = sock.recv(json_length)
+    data = json.loads(payload.decode("utf-8"))
+except socket.timeout:
+    print("Status query timed out")
+    sys.exit(1)
+except (OSError, ValueError, json.JSONDecodeError) as exc:
+    print(f"Status query failed: {exc}")
+    sys.exit(1)
+finally:
+    sock.close()
+
+players = data.get("players", {})
+online = players.get("online", 0)
+list_names = [entry.get("name") for entry in players.get("sample", []) if entry.get("name")]
+
+if list_names:
+    print(f"{address} online: {online} -> {', '.join(list_names)}")
+elif online:
+    print(f"{address} online: {online} (names unavailable)")
+else:
+    print(f"{address} online: {online}")
+PY
+}
+
+
+alias mc='mcplayers' # Minecraft server player count
+
