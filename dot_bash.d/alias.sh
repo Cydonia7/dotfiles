@@ -85,6 +85,9 @@ alias utr='~/.bin/upload-to-remarkable.sh' # Upload files to reMarkable tablet
 ## Next Train
 alias nt='~/Projects/cydo/tools/next-train/next-train.sh' # Next metro departures
 
+## Tennis Court Update
+alias ute='~/Projects/cydo/tools/tcg-tennis/.venv/bin/python ~/Projects/cydo/tools/tcg-tennis/update_class_event.py' # Update tennis event with court
+
 ## Minecraft
 mcplayers() {
     local host="51.79.78.207"
