@@ -205,8 +205,24 @@ alias gdh="git diff HEAD"                                                       
 alias gda="git --no-pager diff HEAD && git ls-files --others --exclude-standard -z | xargs -0 -r -I{} git --no-pager diff --no-index /dev/null {}"                          # Shows all diff (untracked & unstaged & staged files)
 alias gsh="git show"                                                                                                                                                        # Show commit
 alias gshh="git show HEAD"                                                                                                                                                  # Show HEAD
-alias gl="git log --graph --abbrev-commit --decorate --pretty=format:'%Cred%h%Creset %C(bold yellow)%d%Creset %s %Cgreen(%ar)%Creset %C(blue)<%an>%Creset' --color=always | format_git_decorations | less -R" # Shows history
-alias gla="git log --all --graph --abbrev-commit --decorate --pretty=format:'%Cred%h%Creset %C(bold yellow)%d%Creset %s %Cgreen(%ar)%Creset %C(blue)<%an>%Creset' --color=always | format_git_decorations | less -R"
+
+# Git log - use flog if available, fallback to bash implementation
+gl() {
+  if command -v flog &>/dev/null; then
+    flog --kitty "$@"
+  else
+    git log --graph --abbrev-commit --decorate --pretty=format:'%Cred%h%Creset %C(bold yellow)%d%Creset %s %Cgreen(%ar)%Creset %C(blue)<%an>%Creset' --color=always "$@" | format_git_decorations | less -R
+  fi
+}
+
+# Git log all branches - use flog if available, fallback to bash implementation
+gla() {
+  if command -v flog &>/dev/null; then
+    flog --kitty -all "$@"
+  else
+    git log --all --graph --abbrev-commit --decorate --pretty=format:'%Cred%h%Creset %C(bold yellow)%d%Creset %s %Cgreen(%ar)%Creset %C(blue)<%an>%Creset' --color=always "$@" | format_git_decorations | less -R
+  fi
+}
 alias gsp='git standup' # Shows my recent commits
 
 ## Branch operations
