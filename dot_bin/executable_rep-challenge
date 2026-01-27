@@ -1,0 +1,574 @@
+#!/bin/bash
+
+# Rep Challenge Tracker
+# A TUI for tracking rep-based fitness challenges
+
+# Constants
+CHALLENGES_FILE="$HOME/.config/rep-challenge/challenges.conf"
+PROGRESS_FILE="$HOME/.config/rep-challenge/progress.conf"
+CONFIG_DIR="$(dirname "$CHALLENGES_FILE")"
+
+# Challenge data (loaded from file)
+declare -A CHALLENGE_NAMES
+declare -A CHALLENGE_TARGETS
+declare -A CHALLENGE_DAYS
+declare -A CHALLENGE_STARTS
+CHALLENGE_COUNT=0
+
+# Progress totals (calculated)
+declare -A CHALLENGE_TOTAL_REPS
+declare -A CHALLENGE_LAST_DATE
+declare -A CHALLENGE_LAST_REPS
+
+# Current state
+SELECTED=1
+
+# Colors
+COLOR_RESET="\033[0m"
+COLOR_HEADER="\033[1;36m"      # Cyan bold
+COLOR_SELECTED="\033[1;32m"    # Green bold
+COLOR_NORMAL="\033[0;37m"      # White
+COLOR_EPISODE="\033[0;33m"     # Yellow
+COLOR_BORDER="\033[0;34m"      # Blue
+COLOR_HINT="\033[0;90m"        # Gray
+COLOR_GREEN="\033[0;32m"       # Green
+COLOR_RED="\033[0;31m"         # Red
+
+# Date utils
+date_diff() {
+    local start_epoch=$(date -d "$1" +%s 2>/dev/null)
+    local end_epoch=$(date -d "$2" +%s 2>/dev/null)
+    echo $(( (end_epoch - start_epoch) / 86400 ))
+}
+
+days_elapsed() {
+    local start="$1"
+    local today=$(date +%Y-%m-%d)
+    local diff=$(date_diff "$start" "$today")
+    echo $(( diff + 1 ))
+}
+
+# Initialize config directory and files
+init_config() {
+    if [[ ! -d "$CONFIG_DIR" ]]; then
+        mkdir -p "$CONFIG_DIR"
+    fi
+    if [[ ! -f "$CHALLENGES_FILE" ]]; then
+        touch "$CHALLENGES_FILE"
+    fi
+    if [[ ! -f "$PROGRESS_FILE" ]]; then
+        touch "$PROGRESS_FILE"
+    fi
+}
+
+# Load challenges from config
+load_challenges() {
+    CHALLENGE_COUNT=0
+    local index=1
+    while IFS='|' read -r name target days start; do
+        [[ "$name" =~ ^#.*$ || -z "$name" ]] && continue
+        CHALLENGE_NAMES[$index]="$name"
+        CHALLENGE_TARGETS[$index]="$target"
+        CHALLENGE_DAYS[$index]="$days"
+        CHALLENGE_STARTS[$index]="$start"
+        ((index++))
+    done < "$CHALLENGES_FILE"
+    CHALLENGE_COUNT=$((index - 1))
+}
+
+# Save challenges to config
+save_challenges() {
+    > "$CHALLENGES_FILE"
+    for i in $(seq 1 $CHALLENGE_COUNT); do
+        echo "${CHALLENGE_NAMES[$i]}|${CHALLENGE_TARGETS[$i]}|${CHALLENGE_DAYS[$i]}|${CHALLENGE_STARTS[$i]}" >> "$CHALLENGES_FILE"
+    done
+}
+
+# Load progress and calculate totals
+load_progress() {
+    # Reset totals
+    for i in $(seq 1 $CHALLENGE_COUNT); do
+        CHALLENGE_TOTAL_REPS[$i]=0
+        CHALLENGE_LAST_DATE[$i]=""
+        CHALLENGE_LAST_REPS[$i]=0
+    done
+
+    [[ ! -f "$PROGRESS_FILE" ]] && return
+
+    while IFS='|' read -r name date reps; do
+        [[ -z "$name" ]] && continue
+        for i in $(seq 1 $CHALLENGE_COUNT); do
+            if [[ "${CHALLENGE_NAMES[$i]}" == "$name" ]]; then
+                CHALLENGE_TOTAL_REPS[$i]=$(( ${CHALLENGE_TOTAL_REPS[$i]} + reps ))
+                # Track last entry
+                if [[ -z "${CHALLENGE_LAST_DATE[$i]}" || "$date" > "${CHALLENGE_LAST_DATE[$i]}" ]]; then
+                    CHALLENGE_LAST_DATE[$i]="$date"
+                    CHALLENGE_LAST_REPS[$i]="$reps"
+                fi
+                break
+            fi
+        done
+    done < "$PROGRESS_FILE"
+}
+
+# Get status for a challenge
+get_status() {
+    local idx=$1
+    local total=${CHALLENGE_TOTAL_REPS[$idx]}
+    local target=${CHALLENGE_TARGETS[$idx]}
+    local elapsed=$(days_elapsed "${CHALLENGE_STARTS[$idx]}")
+    local total_days=${CHALLENGE_DAYS[$idx]}
+
+    if [[ $total -ge $target ]]; then
+        echo "complete"
+        return
+    fi
+
+    # Expected progress at this point
+    local expected
+    if [[ $total_days -gt 0 ]]; then
+        expected=$(echo "scale=2; $target * $elapsed / $total_days" | bc 2>/dev/null)
+    else
+        expected=$target
+    fi
+
+    local on_track
+    on_track=$(echo "$total >= $expected" | bc 2>/dev/null)
+    if [[ "$on_track" == "1" ]]; then
+        echo "on_track"
+    else
+        echo "behind"
+    fi
+}
+
+# Draw progress bar (40 chars wide)
+draw_progress_bar() {
+    local current=$1
+    local target=$2
+    local width=40
+
+    local pct=0
+    if [[ $target -gt 0 ]]; then
+        pct=$(( current * 100 / target ))
+    fi
+    [[ $pct -gt 100 ]] && pct=100
+
+    local filled=$(( pct * width / 100 ))
+    local empty=$(( width - filled ))
+
+    local bar=""
+    for ((j=0; j<filled; j++)); do bar+="█"; done
+    for ((j=0; j<empty; j++)); do bar+="░"; done
+
+    echo "[${bar}] ${pct}%"
+}
+
+# Draw the TUI
+draw_ui() {
+    local buffer=""
+    local box_width=73
+
+    # Synchronized output start
+    buffer+="\033[?2026h"
+
+    # Move cursor to home position
+    buffer+="\033[H"
+
+    # Generate border lines
+    local top_border="╔$(printf '%0.s═' $(seq 1 $box_width))╗"
+    local mid_border="╠$(printf '%0.s═' $(seq 1 $box_width))╣"
+    local bot_border="╚$(printf '%0.s═' $(seq 1 $box_width))╝"
+
+    # Header
+    buffer+="${COLOR_BORDER}${top_border}${COLOR_RESET}\n"
+    local header_text="Rep Challenge Tracker"
+    local header_left_padding=$(( (box_width - ${#header_text}) / 2 ))
+    local header_right_padding=$(( box_width - ${#header_text} - header_left_padding ))
+    buffer+="${COLOR_BORDER}║${COLOR_RESET}$(printf "%${header_left_padding}s")${COLOR_HEADER}${header_text}${COLOR_RESET}$(printf "%${header_right_padding}s")${COLOR_BORDER}║${COLOR_RESET}\n"
+    buffer+="${COLOR_BORDER}${mid_border}${COLOR_RESET}\n"
+    buffer+="${COLOR_BORDER}║$(printf "%${box_width}s" " ")║${COLOR_RESET}\n"
+
+    if [[ $CHALLENGE_COUNT -eq 0 ]]; then
+        local empty_text="  Press 'n' to create your first challenge"
+        local empty_padding=$((box_width - ${#empty_text}))
+        buffer+="${COLOR_BORDER}║${COLOR_HINT}${empty_text}${COLOR_RESET}$(printf "%${empty_padding}s")${COLOR_BORDER}║${COLOR_RESET}\n"
+        buffer+="${COLOR_BORDER}║$(printf "%${box_width}s" " ")║${COLOR_RESET}\n"
+    else
+        for i in $(seq 1 $CHALLENGE_COUNT); do
+            local name="${CHALLENGE_NAMES[$i]}"
+            local target=${CHALLENGE_TARGETS[$i]}
+            local total_days=${CHALLENGE_DAYS[$i]}
+            local start="${CHALLENGE_STARTS[$i]}"
+            local total=${CHALLENGE_TOTAL_REPS[$i]}
+            local elapsed=$(days_elapsed "$start")
+            [[ $elapsed -gt $total_days ]] && elapsed=$total_days
+            local remaining_days=$(( total_days - elapsed ))
+            [[ $remaining_days -lt 0 ]] && remaining_days=0
+            local remaining_reps=$(( target - total ))
+            [[ $remaining_reps -lt 0 ]] && remaining_reps=0
+
+            local status=$(get_status "$i")
+            local status_text status_color
+            case "$status" in
+                complete)
+                    status_text="✓ Complete"
+                    status_color="$COLOR_GREEN"
+                    ;;
+                on_track)
+                    status_text="✓ On track"
+                    status_color="$COLOR_GREEN"
+                    ;;
+                behind)
+                    status_text="✗ Behind"
+                    status_color="$COLOR_RED"
+                    ;;
+            esac
+
+            # Pace calculations
+            local pace="0.0"
+            if [[ $elapsed -gt 0 ]]; then
+                pace=$(echo "scale=1; $total / $elapsed" | bc 2>/dev/null)
+            fi
+            local need="0.0"
+            if [[ $remaining_days -gt 0 ]]; then
+                need=$(echo "scale=1; $remaining_reps / $remaining_days" | bc 2>/dev/null)
+            elif [[ $remaining_reps -gt 0 ]]; then
+                need="∞"
+            else
+                need="0.0"
+            fi
+
+            # Last entry info
+            local last_info="None"
+            if [[ -n "${CHALLENGE_LAST_DATE[$i]}" ]]; then
+                last_info="${CHALLENGE_LAST_DATE[$i]} (+${CHALLENGE_LAST_REPS[$i]})"
+            fi
+
+            # Progress bar
+            local pbar=$(draw_progress_bar "$total" "$target")
+
+            # Name line
+            if [[ $i -eq $SELECTED ]]; then
+                local text="  ▶ ${name}"
+                local pad=$((box_width - ${#text}))
+                buffer+="${COLOR_BORDER}║${COLOR_SELECTED}${text}${COLOR_RESET}$(printf "%${pad}s")${COLOR_BORDER}║${COLOR_RESET}\n"
+            else
+                local text="    ${name}"
+                local pad=$((box_width - ${#text}))
+                buffer+="${COLOR_BORDER}║${COLOR_NORMAL}${text}${COLOR_RESET}$(printf "%${pad}s")${COLOR_BORDER}║${COLOR_RESET}\n"
+            fi
+
+            # Stats line: reps | day | status
+            local stats_plain="    ${total} / ${target} reps  │  Day ${elapsed} / ${total_days}  │  ${status_text}"
+            local stats_pad=$((box_width - ${#stats_plain}))
+            local stats_line="    ${total} / ${target} reps  │  Day ${elapsed} / ${total_days}  │  ${status_color}${status_text}${COLOR_RESET}"
+            buffer+="${COLOR_BORDER}║${COLOR_RESET}${stats_line}$(printf "%${stats_pad}s")${COLOR_BORDER}║${COLOR_RESET}\n"
+
+            # Progress bar line
+            local bar_text="    ${pbar}"
+            local bar_pad=$((box_width - ${#bar_text}))
+            buffer+="${COLOR_BORDER}║${COLOR_EPISODE}${bar_text}${COLOR_RESET}$(printf "%${bar_pad}s")${COLOR_BORDER}║${COLOR_RESET}\n"
+
+            # Pace line
+            local pace_plain="    Pace: ${pace}/day  │  Need: ${need}/day  │  Last: ${last_info}"
+            local pace_pad=$((box_width - ${#pace_plain}))
+            buffer+="${COLOR_BORDER}║${COLOR_HINT}${pace_plain}${COLOR_RESET}$(printf "%${pace_pad}s")${COLOR_BORDER}║${COLOR_RESET}\n"
+
+            # Blank line
+            buffer+="${COLOR_BORDER}║$(printf "%${box_width}s" " ")║${COLOR_RESET}\n"
+        done
+    fi
+
+    # Footer
+    buffer+="${COLOR_BORDER}${bot_border}${COLOR_RESET}\n"
+
+    # Hints
+    local hints="↑/↓: Select │ a: Add reps │ n: New challenge │ d: Delete │ h: History │ q: Quit"
+    local hints_padding=$(( (box_width + 2 - ${#hints}) / 2 ))
+    buffer+="$(printf "%${hints_padding}s")${COLOR_HINT}${hints}${COLOR_RESET}"
+
+    # Clear to end of screen
+    buffer+="\033[J"
+
+    # Synchronized output end
+    buffer+="\033[?2026l"
+
+    echo -ne "$buffer"
+}
+
+# Show history modal for selected challenge
+show_history() {
+    local idx=$SELECTED
+    local name="${CHALLENGE_NAMES[$idx]}"
+
+    # Collect history entries
+    local entries=()
+    while IFS='|' read -r ename date reps; do
+        if [[ "$ename" == "$name" ]]; then
+            entries+=("$date  +${reps} reps")
+        fi
+    done < "$PROGRESS_FILE"
+
+    local count=${#entries[@]}
+    local show=10
+    local start=$(( count > show ? count - show : 0 ))
+
+    # Draw centered overlay
+    local modal_width=40
+    local box_width=73
+    local left_offset=$(( (box_width + 2 - modal_width) / 2 ))
+    local pad_left=$(printf "%${left_offset}s" " ")
+
+    local mtop="${pad_left}╔$(printf '%0.s═' $(seq 1 $((modal_width - 2))))╗"
+    local mbot="${pad_left}╚$(printf '%0.s═' $(seq 1 $((modal_width - 2))))╝"
+
+    local buffer="\033[?2026h\033[H\033[2J"
+    buffer+="\n\n\n"
+
+    # Title
+    local title="History: ${name}"
+    if [[ ${#title} -gt $((modal_width - 4)) ]]; then
+        title="${title:0:$((modal_width - 7))}..."
+    fi
+    local title_pad=$(( modal_width - 2 - ${#title} ))
+    local title_left=$(( title_pad / 2 ))
+    local title_right=$(( title_pad - title_left ))
+
+    buffer+="${COLOR_BORDER}${mtop}${COLOR_RESET}\n"
+    buffer+="${COLOR_BORDER}${pad_left}║$(printf "%${title_left}s")${COLOR_HEADER}${title}${COLOR_RESET}$(printf "%${title_right}s")${COLOR_BORDER}║${COLOR_RESET}\n"
+    buffer+="${COLOR_BORDER}${pad_left}╠$(printf '%0.s═' $(seq 1 $((modal_width - 2))))╣${COLOR_RESET}\n"
+
+    if [[ $count -eq 0 ]]; then
+        local no_text="No entries yet"
+        local no_pad=$(( modal_width - 2 - ${#no_text} ))
+        local no_left=$(( no_pad / 2 ))
+        local no_right=$(( no_pad - no_left ))
+        buffer+="${COLOR_BORDER}${pad_left}║$(printf "%${no_left}s")${COLOR_HINT}${no_text}${COLOR_RESET}$(printf "%${no_right}s")${COLOR_BORDER}║${COLOR_RESET}\n"
+    else
+        for ((j=start; j<count; j++)); do
+            local entry="${entries[$j]}"
+            local entry_text="  ${entry}"
+            local entry_pad=$(( modal_width - 2 - ${#entry_text} ))
+            buffer+="${COLOR_BORDER}${pad_left}║${COLOR_RESET}${entry_text}$(printf "%${entry_pad}s")${COLOR_BORDER}║${COLOR_RESET}\n"
+        done
+    fi
+
+    buffer+="${COLOR_BORDER}${mbot}${COLOR_RESET}\n"
+    buffer+="${pad_left}${COLOR_HINT}  Press any key to close${COLOR_RESET}"
+    buffer+="\033[J\033[?2026l"
+
+    echo -ne "$buffer"
+
+    # Wait for keypress
+    IFS= read -rsn1
+    # Flush
+    while read -rsn1 -t 0.001 discard; do :; done
+}
+
+# Prompt to add reps
+prompt_add_reps() {
+    [[ $CHALLENGE_COUNT -eq 0 ]] && return
+
+    local idx=$SELECTED
+    local name="${CHALLENGE_NAMES[$idx]}"
+
+    # Show cursor and prompt
+    echo -ne "\033[?25h"
+    echo -ne "\033[H\033[J"
+    echo -e "${COLOR_HEADER}Add reps for: ${name}${COLOR_RESET}"
+    echo -ne "Number of reps: "
+
+    local reps_input
+    read -r reps_input
+
+    echo -ne "\033[?25l"
+
+    # Validate
+    if [[ "$reps_input" =~ ^[0-9]+$ ]] && [[ "$reps_input" -gt 0 ]]; then
+        local today=$(date +%Y-%m-%d)
+        echo "${name}|${today}|${reps_input}" >> "$PROGRESS_FILE"
+        load_progress
+    fi
+}
+
+# Prompt to create new challenge
+prompt_new_challenge() {
+    echo -ne "\033[?25h"
+    echo -ne "\033[H\033[J"
+    echo -e "${COLOR_HEADER}Create New Challenge${COLOR_RESET}"
+    echo ""
+
+    echo -ne "Challenge name: "
+    local name
+    read -r name
+    [[ -z "$name" ]] && { echo -ne "\033[?25l"; return; }
+
+    echo -ne "Target reps: "
+    local target
+    read -r target
+    if ! [[ "$target" =~ ^[0-9]+$ ]] || [[ "$target" -le 0 ]]; then
+        echo -ne "\033[?25l"
+        return
+    fi
+
+    echo -ne "Number of days: "
+    local days
+    read -r days
+    if ! [[ "$days" =~ ^[0-9]+$ ]] || [[ "$days" -le 0 ]]; then
+        echo -ne "\033[?25l"
+        return
+    fi
+
+    echo -ne "\033[?25l"
+
+    local today=$(date +%Y-%m-%d)
+    CHALLENGE_COUNT=$((CHALLENGE_COUNT + 1))
+    CHALLENGE_NAMES[$CHALLENGE_COUNT]="$name"
+    CHALLENGE_TARGETS[$CHALLENGE_COUNT]="$target"
+    CHALLENGE_DAYS[$CHALLENGE_COUNT]="$days"
+    CHALLENGE_STARTS[$CHALLENGE_COUNT]="$today"
+    CHALLENGE_TOTAL_REPS[$CHALLENGE_COUNT]=0
+    CHALLENGE_LAST_DATE[$CHALLENGE_COUNT]=""
+    CHALLENGE_LAST_REPS[$CHALLENGE_COUNT]=0
+
+    save_challenges
+    SELECTED=$CHALLENGE_COUNT
+}
+
+# Delete selected challenge
+delete_challenge() {
+    [[ $CHALLENGE_COUNT -eq 0 ]] && return
+
+    local idx=$SELECTED
+    local name="${CHALLENGE_NAMES[$idx]}"
+
+    echo -ne "\033[?25h"
+    echo -ne "\033[H\033[J"
+    echo -e "${COLOR_RED}Delete challenge: ${name}?${COLOR_RESET}"
+    echo -ne "Type 'yes' to confirm: "
+
+    local confirm
+    read -r confirm
+
+    echo -ne "\033[?25l"
+
+    if [[ "$confirm" == "yes" ]]; then
+        # Remove from arrays by shifting
+        for ((j=idx; j<CHALLENGE_COUNT; j++)); do
+            local next=$((j + 1))
+            CHALLENGE_NAMES[$j]="${CHALLENGE_NAMES[$next]}"
+            CHALLENGE_TARGETS[$j]="${CHALLENGE_TARGETS[$next]}"
+            CHALLENGE_DAYS[$j]="${CHALLENGE_DAYS[$next]}"
+            CHALLENGE_STARTS[$j]="${CHALLENGE_STARTS[$next]}"
+        done
+        unset "CHALLENGE_NAMES[$CHALLENGE_COUNT]"
+        unset "CHALLENGE_TARGETS[$CHALLENGE_COUNT]"
+        unset "CHALLENGE_DAYS[$CHALLENGE_COUNT]"
+        unset "CHALLENGE_STARTS[$CHALLENGE_COUNT]"
+        CHALLENGE_COUNT=$((CHALLENGE_COUNT - 1))
+
+        # Remove progress entries
+        if [[ -f "$PROGRESS_FILE" ]]; then
+            local tmp="${PROGRESS_FILE}.tmp"
+            grep -v "^${name}|" "$PROGRESS_FILE" > "$tmp" || true
+            mv "$tmp" "$PROGRESS_FILE"
+        fi
+
+        save_challenges
+        load_progress
+
+        if [[ $SELECTED -gt $CHALLENGE_COUNT ]] && [[ $CHALLENGE_COUNT -gt 0 ]]; then
+            SELECTED=$CHALLENGE_COUNT
+        fi
+        [[ $CHALLENGE_COUNT -eq 0 ]] && SELECTED=1
+    fi
+}
+
+# Handle keyboard input
+handle_input() {
+    local key
+
+    # Flush input buffer before reading
+    while read -rsn1 -t 0.001 discard; do :; done
+
+    # Read single character
+    IFS= read -rsn1 key
+
+    # Handle escape sequences (arrow keys)
+    if [[ $key == $'\x1b' ]]; then
+        read -rsn2 key
+        case $key in
+            '[A') # Up arrow
+                if [[ $CHALLENGE_COUNT -gt 0 ]]; then
+                    SELECTED=$((SELECTED - 1))
+                    [[ $SELECTED -lt 1 ]] && SELECTED=$CHALLENGE_COUNT
+                fi
+                ;;
+            '[B') # Down arrow
+                if [[ $CHALLENGE_COUNT -gt 0 ]]; then
+                    SELECTED=$((SELECTED + 1))
+                    [[ $SELECTED -gt $CHALLENGE_COUNT ]] && SELECTED=1
+                fi
+                ;;
+        esac
+        # Flush any remaining buffered input after arrow key
+        while read -rsn1 -t 0.001 discard; do :; done
+    else
+        case $key in
+            'q'|'Q')
+                return 1
+                ;;
+            'a'|'A')
+                prompt_add_reps
+                ;;
+            'n'|'N')
+                prompt_new_challenge
+                ;;
+            'd'|'D')
+                delete_challenge
+                ;;
+            'h'|'H')
+                show_history
+                ;;
+        esac
+    fi
+
+    return 0
+}
+
+# Main loop
+main_loop() {
+    init_config
+    load_challenges
+    load_progress
+
+    # Save current terminal settings
+    local old_tty_settings=$(stty -g)
+
+    # Switch to alternate screen buffer, clear, and hide cursor
+    echo -ne "\033[?1049h\033[H\033[2J\033[?25l"
+
+    while true; do
+        draw_ui
+        handle_input || break
+    done
+
+    # Restore everything
+    echo -ne "\033[?1000l"    # Disable X10 mouse
+    echo -ne "\033[?1001l"    # Disable highlight mouse
+    echo -ne "\033[?1002l"    # Disable button event mouse
+    echo -ne "\033[?1003l"    # Disable any event mouse
+    echo -ne "\033[?1004l"    # Disable focus events
+    echo -ne "\033[?1005l"    # Disable UTF-8 mouse mode
+    echo -ne "\033[?1006l"    # Disable SGR mouse mode
+    echo -ne "\033[?1015l"    # Disable urxvt mouse mode
+    echo -ne "\033[0m"        # Reset all attributes
+    echo -ne "\033[?25h"      # Show cursor
+    echo -ne "\033[?1049l"    # Restore main screen buffer
+
+    # Restore terminal settings
+    stty "$old_tty_settings"
+}
+
+# Run the main loop
+main_loop

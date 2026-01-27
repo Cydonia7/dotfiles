@@ -79,6 +79,9 @@ alias ccc='claude --dangerously-skip-permissions --resume' # Claude Code without
 ## Series Tracker
 alias st='~/.bin/series-tracker' # TV series progress tracker
 
+## Rep Challenge Tracker
+alias rc='~/.bin/rep-challenge' # Rep challenge progress tracker
+
 ## reMarkable Upload
 alias utr='~/.bin/upload-to-remarkable.sh' # Upload files to reMarkable tablet
 

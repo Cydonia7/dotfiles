@@ -259,6 +259,9 @@ draw_ui() {
     local buffer=""
     local box_width=73  # Internal content width
 
+    # Synchronized output start
+    buffer+="\033[?2026h"
+
     # Move cursor to home position (don't clear screen)
     buffer+="\033[H"
 
@@ -323,6 +326,9 @@ draw_ui() {
     local hints="↑/↓: Select │ w: Watch │ d: Done │ n: Play next │ r: Reset │ q: Quit"
     local hints_padding=$(( (box_width + 2 - ${#hints}) / 2 ))
     buffer+="$(printf "%${hints_padding}s")${COLOR_HINT}${hints}${COLOR_RESET}"
+
+    # Synchronized output end
+    buffer+="\033[?2026l"
 
     # Output entire buffer at once
     echo -ne "$buffer"
