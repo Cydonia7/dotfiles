@@ -11,3 +11,8 @@ modify_font cell_height {{ .kitty.cellHeight }}
 modify_font cell_width {{ .kitty.cellWidth }}
 
 disable_ligatures always
+{{- if eq .chezmoi.os "darwin" }}
+shell /opt/homebrew/bin/bash
+{{- else }}
+shell /bin/bash
+{{- end }}
