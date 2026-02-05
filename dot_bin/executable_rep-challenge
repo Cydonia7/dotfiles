@@ -286,7 +286,7 @@ draw_ui() {
 
             # Name line
             if [[ $i -eq $SELECTED ]]; then
-                local text="         ▶ ${name}"
+                local text="          ▶ ${name}"
                 local pad=$((box_width - ${#text}))
                 buffer+="${indent}${COLOR_BORDER}║${COLOR_SELECTED}${text}${COLOR_RESET}$(printf "%${pad}s")${COLOR_BORDER}║${COLOR_RESET}\n"
             else
