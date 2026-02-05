@@ -17,6 +17,7 @@ CHALLENGE_COUNT=0
 
 # Progress totals (calculated)
 declare -A CHALLENGE_TOTAL_REPS
+declare -A CHALLENGE_TOTAL_BEFORE_TODAY
 declare -A CHALLENGE_LAST_DATE
 declare -A CHALLENGE_LAST_REPS
 
@@ -91,9 +92,12 @@ save_challenges() {
 
 # Load progress and calculate totals
 load_progress() {
+    local today=$(date +%Y-%m-%d)
+
     # Reset totals
     for i in $(seq 1 $CHALLENGE_COUNT); do
         CHALLENGE_TOTAL_REPS[$i]=0
+        CHALLENGE_TOTAL_BEFORE_TODAY[$i]=0
         CHALLENGE_LAST_DATE[$i]=""
         CHALLENGE_LAST_REPS[$i]=0
     done
@@ -105,6 +109,10 @@ load_progress() {
         for i in $(seq 1 $CHALLENGE_COUNT); do
             if [[ "${CHALLENGE_NAMES[$i]}" == "$name" ]]; then
                 CHALLENGE_TOTAL_REPS[$i]=$(( ${CHALLENGE_TOTAL_REPS[$i]} + reps ))
+                # Track total before today (for stable "need" calculation)
+                if [[ "$date" < "$today" ]]; then
+                    CHALLENGE_TOTAL_BEFORE_TODAY[$i]=$(( ${CHALLENGE_TOTAL_BEFORE_TODAY[$i]} + reps ))
+                fi
                 # Track last entry
                 if [[ -z "${CHALLENGE_LAST_DATE[$i]}" || "$date" > "${CHALLENGE_LAST_DATE[$i]}" ]]; then
                     CHALLENGE_LAST_DATE[$i]="$date"
@@ -161,11 +169,11 @@ get_status() {
     fi
 }
 
-# Draw progress bar (40 chars wide)
+# Draw progress bar (configurable width)
 draw_progress_bar() {
     local current=$1
     local target=$2
-    local width=40
+    local width=${3:-40}
 
     local pct=0
     if [[ $target -gt 0 ]]; then
@@ -186,7 +194,13 @@ draw_progress_bar() {
 # Draw the TUI
 draw_ui() {
     local buffer=""
-    local box_width=73
+
+    # Define hints first to calculate box width
+    local hints="↑/↓: Sélect. │ a: Ajouter │ n: Nouveau │ r: Renommer │ d: Supprimer │ h: Historique │ q: Quitter"
+    # Box width = hints length - 2 (for the ║ borders)
+    local box_width=$(( ${#hints} - 2 ))
+    # 1 space indent for alignment at column 2
+    local indent=" "
 
     # Synchronized output start
     buffer+="\033[?2026h"
@@ -200,19 +214,19 @@ draw_ui() {
     local bot_border="╚$(printf '%0.s═' $(seq 1 $box_width))╝"
 
     # Header
-    buffer+="${COLOR_BORDER}${top_border}${COLOR_RESET}\n"
+    buffer+="${indent}${COLOR_BORDER}${top_border}${COLOR_RESET}\n"
     local header_text="Tracker de challenges"
     local header_left_padding=$(( (box_width - ${#header_text}) / 2 ))
     local header_right_padding=$(( box_width - ${#header_text} - header_left_padding ))
-    buffer+="${COLOR_BORDER}║${COLOR_RESET}$(printf "%${header_left_padding}s")${COLOR_HEADER}${header_text}${COLOR_RESET}$(printf "%${header_right_padding}s")${COLOR_BORDER}║${COLOR_RESET}\n"
-    buffer+="${COLOR_BORDER}${mid_border}${COLOR_RESET}\n"
-    buffer+="${COLOR_BORDER}║$(printf "%${box_width}s" " ")║${COLOR_RESET}\n"
+    buffer+="${indent}${COLOR_BORDER}║${COLOR_RESET}$(printf "%${header_left_padding}s")${COLOR_HEADER}${header_text}${COLOR_RESET}$(printf "%${header_right_padding}s")${COLOR_BORDER}║${COLOR_RESET}\n"
+    buffer+="${indent}${COLOR_BORDER}${mid_border}${COLOR_RESET}\n"
+    buffer+="${indent}${COLOR_BORDER}║$(printf "%${box_width}s" " ")║${COLOR_RESET}\n"
 
     if [[ $CHALLENGE_COUNT -eq 0 ]]; then
-        local empty_text="  Appuyez sur 'n' pour créer votre premier défi"
+        local empty_text="            Appuyez sur 'n' pour créer votre premier défi"
         local empty_padding=$((box_width - ${#empty_text}))
-        buffer+="${COLOR_BORDER}║${COLOR_HINT}${empty_text}${COLOR_RESET}$(printf "%${empty_padding}s")${COLOR_BORDER}║${COLOR_RESET}\n"
-        buffer+="${COLOR_BORDER}║$(printf "%${box_width}s" " ")║${COLOR_RESET}\n"
+        buffer+="${indent}${COLOR_BORDER}║${COLOR_HINT}${empty_text}${COLOR_RESET}$(printf "%${empty_padding}s")${COLOR_BORDER}║${COLOR_RESET}\n"
+        buffer+="${indent}${COLOR_BORDER}║$(printf "%${box_width}s" " ")║${COLOR_RESET}\n"
     else
         for i in $(seq 1 $CHALLENGE_COUNT); do
             local name="${CHALLENGE_NAMES[$i]}"
@@ -254,13 +268,11 @@ draw_ui() {
             if [[ $elapsed -gt 0 ]]; then
                 pace=$(echo "scale=1; $total / $elapsed" | bc 2>/dev/null)
             fi
+            # "Need" is fixed from start: target / total_days
+            # Easy to compare: rythme > besoin = ahead, rythme < besoin = behind
             local need="0.0"
-            if [[ $remaining_days -gt 0 ]]; then
-                need=$(echo "scale=1; $remaining_reps / $remaining_days" | bc 2>/dev/null)
-            elif [[ $remaining_reps -gt 0 ]]; then
-                need="∞"
-            else
-                need="0.0"
+            if [[ $total_days -gt 0 ]]; then
+                need=$(echo "scale=1; $target / $total_days" | bc 2>/dev/null)
             fi
 
             # Last entry info
@@ -270,54 +282,52 @@ draw_ui() {
             fi
 
             # Progress bar
-            local pbar=$(draw_progress_bar "$total" "$target")
+            local pbar=$(draw_progress_bar "$total" "$target" 50)
 
             # Name line
             if [[ $i -eq $SELECTED ]]; then
-                local text="  ▶ ${name}"
+                local text="         ▶ ${name}"
                 local pad=$((box_width - ${#text}))
-                buffer+="${COLOR_BORDER}║${COLOR_SELECTED}${text}${COLOR_RESET}$(printf "%${pad}s")${COLOR_BORDER}║${COLOR_RESET}\n"
+                buffer+="${indent}${COLOR_BORDER}║${COLOR_SELECTED}${text}${COLOR_RESET}$(printf "%${pad}s")${COLOR_BORDER}║${COLOR_RESET}\n"
             else
-                local text="    ${name}"
+                local text="            ${name}"
                 local pad=$((box_width - ${#text}))
-                buffer+="${COLOR_BORDER}║${COLOR_NORMAL}${text}${COLOR_RESET}$(printf "%${pad}s")${COLOR_BORDER}║${COLOR_RESET}\n"
+                buffer+="${indent}${COLOR_BORDER}║${COLOR_NORMAL}${text}${COLOR_RESET}$(printf "%${pad}s")${COLOR_BORDER}║${COLOR_RESET}\n"
             fi
 
             # Stats line: reps | day | status (hide day for future challenges)
             local stats_plain stats_line emoji_adjust=0
             if [[ "$status" == "future" ]]; then
-                stats_plain="    ${total} / ${target} reps  │  Début: $(format_date "$start")  │  ${status_text}"
-                stats_line="    ${total} / ${target} reps  │  Début: $(format_date "$start")  │  ${status_color}${status_text}${COLOR_RESET}"
+                stats_plain="            ${total} / ${target} reps  │  Début: $(format_date "$start")  │  ${status_text}"
+                stats_line="            ${total} / ${target} reps  │  Début: $(format_date "$start")  │  ${status_color}${status_text}${COLOR_RESET}"
                 emoji_adjust=1  # ⏳ emoji is 2 chars wide but counts as 1
             else
-                stats_plain="    ${total} / ${target} reps  │  Jour ${elapsed} / ${total_days}  │  ${status_text}"
-                stats_line="    ${total} / ${target} reps  │  Jour ${elapsed} / ${total_days}  │  ${status_color}${status_text}${COLOR_RESET}"
+                stats_plain="            ${total} / ${target} reps  │  Jour ${elapsed} / ${total_days}  │  ${status_text}"
+                stats_line="            ${total} / ${target} reps  │  Jour ${elapsed} / ${total_days}  │  ${status_color}${status_text}${COLOR_RESET}"
             fi
             local stats_pad=$((box_width - ${#stats_plain} - emoji_adjust))
-            buffer+="${COLOR_BORDER}║${COLOR_RESET}${stats_line}$(printf "%${stats_pad}s")${COLOR_BORDER}║${COLOR_RESET}\n"
+            buffer+="${indent}${COLOR_BORDER}║${COLOR_RESET}${stats_line}$(printf "%${stats_pad}s")${COLOR_BORDER}║${COLOR_RESET}\n"
 
             # Progress bar line
-            local bar_text="    ${pbar}"
+            local bar_text="            ${pbar}"
             local bar_pad=$((box_width - ${#bar_text}))
-            buffer+="${COLOR_BORDER}║${COLOR_EPISODE}${bar_text}${COLOR_RESET}$(printf "%${bar_pad}s")${COLOR_BORDER}║${COLOR_RESET}\n"
+            buffer+="${indent}${COLOR_BORDER}║${COLOR_EPISODE}${bar_text}${COLOR_RESET}$(printf "%${bar_pad}s")${COLOR_BORDER}║${COLOR_RESET}\n"
 
             # Pace line
-            local pace_plain="    Rythme: ${pace}/jour  │  Besoin: ${need}/jour  │  Dernier: ${last_info}"
+            local pace_plain="            Rythme: ${pace}/jour  │  Besoin: ${need}/jour  │  Dernier: ${last_info}"
             local pace_pad=$((box_width - ${#pace_plain}))
-            buffer+="${COLOR_BORDER}║${COLOR_HINT}${pace_plain}${COLOR_RESET}$(printf "%${pace_pad}s")${COLOR_BORDER}║${COLOR_RESET}\n"
+            buffer+="${indent}${COLOR_BORDER}║${COLOR_HINT}${pace_plain}${COLOR_RESET}$(printf "%${pace_pad}s")${COLOR_BORDER}║${COLOR_RESET}\n"
 
             # Blank line
-            buffer+="${COLOR_BORDER}║$(printf "%${box_width}s" " ")║${COLOR_RESET}\n"
+            buffer+="${indent}${COLOR_BORDER}║$(printf "%${box_width}s" " ")║${COLOR_RESET}\n"
         done
     fi
 
     # Footer
-    buffer+="${COLOR_BORDER}${bot_border}${COLOR_RESET}\n"
+    buffer+="${indent}${COLOR_BORDER}${bot_border}${COLOR_RESET}\n"
 
-    # Hints
-    local hints="↑/↓: Sélect. │ a: Ajouter │ n: Nouveau │ d: Supprimer │ h: Historique │ q: Quitter"
-    local hints_padding=$(( (box_width + 2 - ${#hints}) / 2 ))
-    buffer+="$(printf "%${hints_padding}s")${COLOR_HINT}${hints}${COLOR_RESET}"
+    # Hints (same indent as box)
+    buffer+="${indent}${COLOR_HINT}${hints}${COLOR_RESET}"
 
     # Clear to end of screen
     buffer+="\033[J"
@@ -345,10 +355,11 @@ show_history() {
     local show=10
     local start=$(( count > show ? count - show : 0 ))
 
-    # Draw centered overlay
+    # Draw centered overlay (box_width matches hints length - 2)
+    local hints="↑/↓: Sélect. │ a: Ajouter │ n: Nouveau │ r: Renommer │ d: Supprimer │ h: Historique │ q: Quitter"
     local modal_width=40
-    local box_width=73
-    local left_offset=$(( (box_width + 2 - modal_width) / 2 ))
+    local box_width=$(( ${#hints} - 2 ))
+    local left_offset=$(( (box_width + 2 - modal_width) / 2 + 1 ))
     local pad_left=$(printf "%${left_offset}s" " ")
 
     local mtop="${pad_left}╔$(printf '%0.s═' $(seq 1 $((modal_width - 2))))╗"
@@ -556,6 +567,7 @@ prompt_new_challenge() {
     CHALLENGE_DAYS[$CHALLENGE_COUNT]="$days"
     CHALLENGE_STARTS[$CHALLENGE_COUNT]="$start_date"
     CHALLENGE_TOTAL_REPS[$CHALLENGE_COUNT]=0
+    CHALLENGE_TOTAL_BEFORE_TODAY[$CHALLENGE_COUNT]=0
     CHALLENGE_LAST_DATE[$CHALLENGE_COUNT]=""
     CHALLENGE_LAST_REPS[$CHALLENGE_COUNT]=0
 
@@ -612,6 +624,40 @@ delete_challenge() {
     fi
 }
 
+# Rename selected challenge
+rename_challenge() {
+    [[ $CHALLENGE_COUNT -eq 0 ]] && return
+
+    local idx=$SELECTED
+    local old_name="${CHALLENGE_NAMES[$idx]}"
+
+    echo -ne "\033[?25h"
+    echo -ne "\033[H\033[J"
+    echo -e "${COLOR_HEADER}Renommer le défi: ${old_name}${COLOR_RESET}"
+    echo ""
+    echo -ne "Nouveau nom: "
+
+    local new_name
+    read -r new_name
+
+    echo -ne "\033[?25l"
+
+    if [[ -n "$new_name" ]]; then
+        # Update challenge name
+        CHALLENGE_NAMES[$idx]="$new_name"
+
+        # Update progress entries with the new name
+        if [[ -f "$PROGRESS_FILE" ]]; then
+            local tmp="${PROGRESS_FILE}.tmp"
+            sed "s/^${old_name}|/${new_name}|/" "$PROGRESS_FILE" > "$tmp"
+            mv "$tmp" "$PROGRESS_FILE"
+        fi
+
+        save_challenges
+        load_progress
+    fi
+}
+
 # Handle keyboard input
 handle_input() {
     local key
@@ -654,6 +700,9 @@ handle_input() {
                 ;;
             'd'|'D')
                 delete_challenge
+                ;;
+            'r'|'R')
+                rename_challenge
                 ;;
             'h'|'H')
                 show_history
