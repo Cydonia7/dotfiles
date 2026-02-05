@@ -624,6 +624,44 @@ delete_challenge() {
     fi
 }
 
+# Move challenge up or down
+move_challenge() {
+    local direction=$1  # -1 for up, 1 for down
+    [[ $CHALLENGE_COUNT -lt 2 ]] && return
+
+    local idx=$SELECTED
+    local target_idx=$((idx + direction))
+
+    # Wrap around
+    if [[ $target_idx -lt 1 ]]; then
+        target_idx=$CHALLENGE_COUNT
+    elif [[ $target_idx -gt $CHALLENGE_COUNT ]]; then
+        target_idx=1
+    fi
+
+    # Swap in arrays
+    local tmp_name="${CHALLENGE_NAMES[$idx]}"
+    local tmp_target="${CHALLENGE_TARGETS[$idx]}"
+    local tmp_days="${CHALLENGE_DAYS[$idx]}"
+    local tmp_start="${CHALLENGE_STARTS[$idx]}"
+
+    CHALLENGE_NAMES[$idx]="${CHALLENGE_NAMES[$target_idx]}"
+    CHALLENGE_TARGETS[$idx]="${CHALLENGE_TARGETS[$target_idx]}"
+    CHALLENGE_DAYS[$idx]="${CHALLENGE_DAYS[$target_idx]}"
+    CHALLENGE_STARTS[$idx]="${CHALLENGE_STARTS[$target_idx]}"
+
+    CHALLENGE_NAMES[$target_idx]="$tmp_name"
+    CHALLENGE_TARGETS[$target_idx]="$tmp_target"
+    CHALLENGE_DAYS[$target_idx]="$tmp_days"
+    CHALLENGE_STARTS[$target_idx]="$tmp_start"
+
+    # Update selection to follow the moved challenge
+    SELECTED=$target_idx
+
+    save_challenges
+    load_progress
+}
+
 # Rename selected challenge
 rename_challenge() {
     [[ $CHALLENGE_COUNT -eq 0 ]] && return
@@ -670,7 +708,7 @@ handle_input() {
 
     # Handle escape sequences (arrow keys)
     if [[ $key == $'\x1b' ]]; then
-        read -rsn2 key
+        read -rsn5 -t 0.01 key
         case $key in
             '[A') # Up arrow
                 if [[ $CHALLENGE_COUNT -gt 0 ]]; then
@@ -683,6 +721,12 @@ handle_input() {
                     SELECTED=$((SELECTED + 1))
                     [[ $SELECTED -gt $CHALLENGE_COUNT ]] && SELECTED=1
                 fi
+                ;;
+            '[1;2A') # Shift+Up arrow
+                move_challenge -1
+                ;;
+            '[1;2B') # Shift+Down arrow
+                move_challenge 1
                 ;;
         esac
         # Flush any remaining buffered input after arrow key
