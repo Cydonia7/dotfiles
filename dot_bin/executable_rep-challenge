@@ -242,6 +242,14 @@ draw_ui() {
             local remaining_reps=$(( target - total ))
             [[ $remaining_reps -lt 0 ]] && remaining_reps=0
 
+            # Reps needed today to be on track
+            local expected_today=0
+            if [[ $total_days -gt 0 ]]; then
+                expected_today=$(( (target * elapsed + total_days - 1) / total_days ))
+            fi
+            local today_remaining=$(( expected_today - total ))
+            [[ $today_remaining -lt 0 ]] && today_remaining=0
+
             local status=$(get_status "$i")
             local status_text status_color
             case "$status" in
@@ -254,7 +262,7 @@ draw_ui() {
                     status_color="$COLOR_GREEN"
                     ;;
                 behind)
-                    status_text="✗ En retard"
+                    status_text="✗ En retard (${today_remaining} restants)"
                     status_color="$COLOR_RED"
                     ;;
                 future)
