@@ -32,6 +32,13 @@
 	excludesfile = /home/cydo/.gitignore
 	pager = delta
 	attributesfile = ~/.gitattributes
+[interactive]
+	diffFilter = delta --color-only
+[delta]
+	navigate = true
+	dark = true
+[merge]
+	conflictStyle = zdiff3
 [status]
 	showUntrackedFiles = all
 [merge "json"]
