@@ -47,6 +47,20 @@ format_date() {
     date -d "$1" +%d/%m/%Y 2>/dev/null
 }
 
+# Format date as relative time (aujourd'hui, hier, il y a x jours)
+format_relative_date() {
+    local target_date="$1"
+    local today=$(date +%Y-%m-%d)
+    local diff=$(date_diff "$target_date" "$today")
+    if [[ $diff -eq 0 ]]; then
+        echo "aujourd'hui"
+    elif [[ $diff -eq 1 ]]; then
+        echo "hier"
+    else
+        echo "il y a ${diff} jours"
+    fi
+}
+
 days_elapsed() {
     local start="$1"
     local today=$(date +%Y-%m-%d)
@@ -113,10 +127,12 @@ load_progress() {
                 if [[ "$date" < "$today" ]]; then
                     CHALLENGE_TOTAL_BEFORE_TODAY[$i]=$(( ${CHALLENGE_TOTAL_BEFORE_TODAY[$i]} + reps ))
                 fi
-                # Track last entry
+                # Track last entry (accumulate reps for the same date)
                 if [[ -z "${CHALLENGE_LAST_DATE[$i]}" || "$date" > "${CHALLENGE_LAST_DATE[$i]}" ]]; then
                     CHALLENGE_LAST_DATE[$i]="$date"
                     CHALLENGE_LAST_REPS[$i]="$reps"
+                elif [[ "$date" == "${CHALLENGE_LAST_DATE[$i]}" ]]; then
+                    CHALLENGE_LAST_REPS[$i]=$(( ${CHALLENGE_LAST_REPS[$i]} + reps ))
                 fi
                 break
             fi
@@ -286,7 +302,7 @@ draw_ui() {
             # Last entry info
             local last_info="Aucun"
             if [[ -n "${CHALLENGE_LAST_DATE[$i]}" ]]; then
-                last_info="$(format_date "${CHALLENGE_LAST_DATE[$i]}") (+${CHALLENGE_LAST_REPS[$i]})"
+                last_info="$(format_relative_date "${CHALLENGE_LAST_DATE[$i]}") (+${CHALLENGE_LAST_REPS[$i]})"
             fi
 
             # Progress bar
