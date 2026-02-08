@@ -34,6 +34,9 @@ COLOR_BORDER="\033[0;34m"      # Blue
 COLOR_HINT="\033[0;90m"        # Gray
 COLOR_GREEN="\033[0;32m"       # Green
 COLOR_RED="\033[0;31m"         # Red
+COLOR_ONTIME="\033[0;33m"     # Yellow - on time portion
+COLOR_FORWARD="\033[0;32m"    # Green - ahead of schedule
+COLOR_NEED="\033[0;33m"       # Yellow - remaining to daily goal
 
 # Date utils
 date_diff() {
@@ -185,26 +188,64 @@ get_status() {
     fi
 }
 
-# Draw progress bar (configurable width)
+# Draw progress bar (two-tone filled + orange need indicator)
+# Segments: [ontime █][forward █][need ░][remaining ░]
+# Sets BAR_RESULT and BAR_PCT for the caller
 draw_progress_bar() {
     local current=$1
     local target=$2
-    local width=${3:-40}
+    local expected=$3
+    local width=${4:-40}
 
-    local pct=0
+    BAR_PCT=0
     if [[ $target -gt 0 ]]; then
-        pct=$(( current * 100 / target ))
+        BAR_PCT=$(( current * 100 / target ))
     fi
-    [[ $pct -gt 100 ]] && pct=100
+    [[ $BAR_PCT -gt 100 ]] && BAR_PCT=100
 
-    local filled=$(( pct * width / 100 ))
-    local empty=$(( width - filled ))
+    local expected_pct=0
+    if [[ $target -gt 0 ]]; then
+        expected_pct=$(( expected * 100 / target ))
+    fi
+    [[ $expected_pct -gt 100 ]] && expected_pct=100
 
-    local bar=""
-    for ((j=0; j<filled; j++)); do bar+="█"; done
-    for ((j=0; j<empty; j++)); do bar+="░"; done
+    local filled=$(( BAR_PCT * width / 100 ))
+    local expected_cells=$(( expected_pct * width / 100 ))
 
-    echo "[${bar}] ${pct}%"
+    # On-time: filled cells up to expected
+    local ontime_cells=$expected_cells
+    [[ $ontime_cells -gt $filled ]] && ontime_cells=$filled
+
+    # Forward: filled cells beyond expected
+    local forward_cells=$(( filled - ontime_cells ))
+
+    # Need: empty cells between current and expected (when behind)
+    local need_cells=0
+    if [[ $expected_cells -gt $filled ]]; then
+        need_cells=$(( expected_cells - filled ))
+    fi
+
+    # Remaining: the rest of the empty bar
+    local remaining_cells=$(( width - filled - need_cells ))
+
+    BAR_RESULT=""
+    if [[ $ontime_cells -gt 0 ]]; then
+        BAR_RESULT+="${COLOR_ONTIME}"
+        for ((j=0; j<ontime_cells; j++)); do BAR_RESULT+="█"; done
+    fi
+    if [[ $forward_cells -gt 0 ]]; then
+        BAR_RESULT+="${COLOR_FORWARD}"
+        for ((j=0; j<forward_cells; j++)); do BAR_RESULT+="█"; done
+    fi
+    if [[ $need_cells -gt 0 ]]; then
+        BAR_RESULT+="${COLOR_NEED}"
+        for ((j=0; j<need_cells; j++)); do BAR_RESULT+="░"; done
+    fi
+    if [[ $remaining_cells -gt 0 ]]; then
+        BAR_RESULT+="${COLOR_RESET}"
+        for ((j=0; j<remaining_cells; j++)); do BAR_RESULT+="░"; done
+    fi
+    BAR_RESULT+="${COLOR_RESET}"
 }
 
 # Draw the TUI
@@ -305,8 +346,8 @@ draw_ui() {
                 last_info="$(format_relative_date "${CHALLENGE_LAST_DATE[$i]}") (+${CHALLENGE_LAST_REPS[$i]})"
             fi
 
-            # Progress bar
-            local pbar=$(draw_progress_bar "$total" "$target" 50)
+            # Progress bar (sets BAR_RESULT and BAR_PCT)
+            draw_progress_bar "$total" "$target" "$expected_today" 50
 
             # Name line
             if [[ $i -eq $SELECTED ]]; then
@@ -332,10 +373,12 @@ draw_ui() {
             local stats_pad=$((box_width - ${#stats_plain} - emoji_adjust))
             buffer+="${indent}${COLOR_BORDER}║${COLOR_RESET}${stats_line}$(printf "%${stats_pad}s")${COLOR_BORDER}║${COLOR_RESET}\n"
 
-            # Progress bar line
-            local bar_text="            ${pbar}"
-            local bar_pad=$((box_width - ${#bar_text}))
-            buffer+="${indent}${COLOR_BORDER}║${COLOR_EPISODE}${bar_text}${COLOR_RESET}$(printf "%${bar_pad}s")${COLOR_BORDER}║${COLOR_RESET}\n"
+            # Progress bar line - compute pad arithmetically to avoid escape code issues
+            # Visual: 12 spaces + "[" + 50 blocks + "] " + pct + "%"
+            local pct_str="${BAR_PCT}%"
+            local bar_visual_len=$((12 + 1 + 50 + 2 + ${#pct_str}))
+            local bar_pad=$((box_width - bar_visual_len))
+            buffer+="${indent}${COLOR_BORDER}║${COLOR_RESET}            [${BAR_RESULT}] ${pct_str}$(printf "%${bar_pad}s")${COLOR_BORDER}║${COLOR_RESET}\n"
 
             # Pace line
             local pace_plain="            Rythme: ${pace}/jour  │  Besoin: ${need}/jour  │  Dernier: ${last_info}"
