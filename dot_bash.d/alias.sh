@@ -91,6 +91,9 @@ alias nt='~/Projects/cydo/tools/next-train/next-train.sh' # Next metro departure
 ## Tennis Court Update
 alias ute='~/Projects/cydo/tools/tcg-tennis/.venv/bin/python ~/Projects/cydo/tools/tcg-tennis/update_class_event.py' # Update tennis event with court
 
+## Hue
+alias nl='curl -s -k -X PUT -H "hue-application-key: $HUE_API_KEY" -H "Content-Type: application/json" -d '\''{"recall":{"action":"activate"}}'\'' "https://$HUE_BRIDGE/clip/v2/resource/smart_scene/54ceda70-96dd-4b0e-b2be-d28c751e37dc" > /dev/null && echo "Lumière naturelle activée (Salon / Cuisine)"' # Activate natural light automation
+
 ## Minecraft
 mcplayers() {
     local host="51.79.78.207"
