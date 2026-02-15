@@ -81,7 +81,9 @@ alias st='~/.bin/series-tracker' # TV series progress tracker
 
 ## Rep Challenge Tracker
 alias rc='~/.bin/rep-challenge' # Rep challenge progress tracker
-alias rct='~/.bin/rep-challenge --test' # Rep challenge test mode
+alias rct='~/.bin/rep-challenge --profile thomas' # Rep challenge (Thomas)
+alias rce='~/.bin/rep-challenge --profile emeline' # Rep challenge (Emeline)
+alias rcx='~/.bin/rep-challenge --profile test' # Rep challenge (test)
 
 ## reMarkable Upload
 alias utr='~/.bin/upload-to-remarkable.sh' # Upload files to reMarkable tablet

@@ -3,10 +3,16 @@
 # Tracker de challenges
 # Une interface TUI pour suivre les défis de fitness basés sur les répétitions
 
+# Profile mode: use a named subdirectory for data
+if [[ "$1" == "--profile" && -n "$2" ]]; then
+    CONFIG_DIR="$HOME/.config/rep-challenge/$2"
+else
+    CONFIG_DIR="$HOME/.config/rep-challenge"
+fi
+
 # Constants
-CHALLENGES_FILE="$HOME/.config/rep-challenge/challenges.conf"
-PROGRESS_FILE="$HOME/.config/rep-challenge/progress.conf"
-CONFIG_DIR="$(dirname "$CHALLENGES_FILE")"
+CHALLENGES_FILE="$CONFIG_DIR/challenges.conf"
+PROGRESS_FILE="$CONFIG_DIR/progress.conf"
 
 # Challenge data (loaded from file)
 declare -A CHALLENGE_NAMES
@@ -246,6 +252,77 @@ draw_progress_bar() {
         for ((j=0; j<remaining_cells; j++)); do BAR_RESULT+="░"; done
     fi
     BAR_RESULT+="${COLOR_RESET}"
+}
+
+# Show celebration modal when crossing a 250-rep milestone
+show_celebration() {
+    local name="$1"
+    local milestone=$2
+
+    local hints="↑/↓: Sélect. │ a: Ajouter │ n: Nouveau │ r: Renommer │ d: Supprimer │ h: Historique │ q: Quitter"
+    local modal_width=44
+    local box_width=$(( ${#hints} - 2 ))
+    local left_offset=$(( (box_width + 2 - modal_width) / 2 + 1 ))
+    local pad_left=$(printf "%${left_offset}s" " ")
+
+    local mtop="${pad_left}╔$(printf '%0.s═' $(seq 1 $((modal_width - 2))))╗"
+    local mbot="${pad_left}╚$(printf '%0.s═' $(seq 1 $((modal_width - 2))))╝"
+    local inner_width=$((modal_width - 2))
+
+    local buffer="\033[?2026h\033[H\033[2J"
+    buffer+="\n\n"
+
+    buffer+="${COLOR_BORDER}${mtop}${COLOR_RESET}\n"
+
+    # Sparkle lines
+    local sparkle1="✧  · ✦ ·  ★  · ✦ ·  ✧"
+    local sparkle2="★  ✦ · ✧ ·  ✦  · ✧ · ★"
+    local s1_pad=$(( inner_width - ${#sparkle1} ))
+    local s1_left=$(( s1_pad / 2 ))
+    local s1_right=$(( s1_pad - s1_left ))
+    local s2_pad=$(( inner_width - ${#sparkle2} ))
+    local s2_left=$(( s2_pad / 2 ))
+    local s2_right=$(( s2_pad - s2_left ))
+
+    buffer+="${COLOR_BORDER}${pad_left}║$(printf "%${s1_left}s")${COLOR_EPISODE}${sparkle1}${COLOR_RESET}$(printf "%${s1_right}s")${COLOR_BORDER}║${COLOR_RESET}\n"
+    buffer+="${COLOR_BORDER}${pad_left}║$(printf "%${inner_width}s")║${COLOR_RESET}\n"
+
+    # Milestone line
+    local milestone_text="🎉 ${milestone} REPS 🎉"
+    local milestone_plain="${milestone} REPS"
+    # Emoji are 2 cells wide each, so visual width = text + 2 emojis * 2 cells + 2 spaces
+    local milestone_visual=$(( ${#milestone_plain} + 6 ))
+    local m_pad=$(( inner_width - milestone_visual ))
+    local m_left=$(( m_pad / 2 ))
+    local m_right=$(( m_pad - m_left ))
+
+    buffer+="${COLOR_BORDER}${pad_left}║$(printf "%${m_left}s")${COLOR_SELECTED}${milestone_text}${COLOR_RESET}$(printf "%${m_right}s")${COLOR_BORDER}║${COLOR_RESET}\n"
+    buffer+="${COLOR_BORDER}${pad_left}║$(printf "%${inner_width}s")║${COLOR_RESET}\n"
+
+    # Challenge name
+    local name_display="$name"
+    if [[ ${#name_display} -gt $((inner_width - 4)) ]]; then
+        name_display="${name_display:0:$((inner_width - 7))}..."
+    fi
+    local n_pad=$(( inner_width - ${#name_display} ))
+    local n_left=$(( n_pad / 2 ))
+    local n_right=$(( n_pad - n_left ))
+
+    buffer+="${COLOR_BORDER}${pad_left}║$(printf "%${n_left}s")${COLOR_HEADER}${name_display}${COLOR_RESET}$(printf "%${n_right}s")${COLOR_BORDER}║${COLOR_RESET}\n"
+    buffer+="${COLOR_BORDER}${pad_left}║$(printf "%${inner_width}s")║${COLOR_RESET}\n"
+
+    buffer+="${COLOR_BORDER}${pad_left}║$(printf "%${s2_left}s")${COLOR_EPISODE}${sparkle2}${COLOR_RESET}$(printf "%${s2_right}s")${COLOR_BORDER}║${COLOR_RESET}\n"
+
+    buffer+="${COLOR_BORDER}${mbot}${COLOR_RESET}\n"
+    buffer+="${pad_left}${COLOR_HINT}  Appuyez sur une touche pour fermer${COLOR_RESET}"
+    buffer+="\033[J\033[?2026l"
+
+    echo -ne "$buffer"
+
+    # Wait for keypress
+    IFS= read -rsn1
+    # Flush
+    while read -rsn1 -t 0.001 discard; do :; done
 }
 
 # Draw the TUI
@@ -507,9 +584,17 @@ prompt_add_reps() {
 
     # Validate
     if [[ "$reps_input" =~ ^[0-9]+$ ]] && [[ "$reps_input" -gt 0 ]]; then
+        local old_total=${CHALLENGE_TOTAL_REPS[$idx]}
         local today=$(date +%Y-%m-%d)
         echo "${name}|${today}|${reps_input}" >> "$PROGRESS_FILE"
         load_progress
+        local new_total=${CHALLENGE_TOTAL_REPS[$idx]}
+        # Check if we crossed a 250-rep milestone
+        local old_milestone=$(( old_total / 250 ))
+        local new_milestone=$(( new_total / 250 ))
+        if [[ $new_milestone -gt $old_milestone ]]; then
+            show_celebration "$name" $(( new_milestone * 250 ))
+        fi
     fi
 }
 
