@@ -80,7 +80,7 @@ alias ccc='claude --dangerously-skip-permissions --resume' # Claude Code without
 alias st='~/.bin/series-tracker' # TV series progress tracker
 
 ## Rep Challenge Tracker
-alias rc='~/.bin/rep-challenge' # Rep challenge progress tracker
+alias rc='p=$(echo -e "Thomas\nEmeline\nTest" | fzf | tr "[:upper:]" "[:lower:]") && ~/.bin/rep-challenge --profile "$p" </dev/tty' # Rep challenge (fzf picker)
 alias rct='~/.bin/rep-challenge --profile thomas' # Rep challenge (Thomas)
 alias rce='~/.bin/rep-challenge --profile emeline' # Rep challenge (Emeline)
 alias rcx='~/.bin/rep-challenge --profile test' # Rep challenge (test)
