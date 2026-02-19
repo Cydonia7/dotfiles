@@ -193,3 +193,11 @@ PY
 
 alias mc='mcplayers' # Minecraft server player count
 
+## Alarm
+aa() { # Set alarm at specific time (usage: aa 17:00 "message")
+    local time="$1"
+    local msg="${2:-Il est $time !}"
+    echo "notify-send -u critical \"Alarme\" \"$msg\"" | at "$time"
+}
+
+
