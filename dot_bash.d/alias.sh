@@ -193,6 +193,9 @@ PY
 
 alias mc='mcplayers' # Minecraft server player count
 
+## Android Emulator
+alias ra='emulator -avd TheTower -gpu auto -no-audio -scale 0.6 -memory 8192 &>/dev/null &disown' # Run Android emulator (TheTower AVD)
+
 ## Alarm
 aa() { # Set alarm at specific time (usage: aa 17:00 "message")
     local time="$1"
