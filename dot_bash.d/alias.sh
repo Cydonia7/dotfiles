@@ -97,6 +97,21 @@ alias ute='~/Projects/cydo/tools/tcg-tennis/.venv/bin/python ~/Projects/cydo/too
 ## Hue
 alias nl='curl -s -k -X PUT -H "hue-application-key: $HUE_API_KEY" -H "Content-Type: application/json" -d '\''{"recall":{"action":"activate"}}'\'' "https://$HUE_BRIDGE/clip/v2/resource/smart_scene/54ceda70-96dd-4b0e-b2be-d28c751e37dc" > /dev/null && echo "Lumière naturelle activée (Salon / Cuisine)"' # Activate natural light automation
 
+lb() { # Set brightness for Salon/Cuisine (usage: lb 60)
+    local b="${1:?Usage: lb <brightness 0-100>}"
+    openhue set light Salon Cuisine --on --brightness "$b" --transition-time 5s
+}
+
+lo() { # Set Salon/Cuisine to orange at given brightness (usage: lo 60)
+    local b="${1:?Usage: lo <brightness 0-100>}"
+    openhue set light Salon Cuisine --on --brightness "$b" --color orange --transition-time 5s
+}
+
+lw() { # Set Salon/Cuisine to white at given brightness (usage: lw 60)
+    local b="${1:?Usage: lw <brightness 0-100>}"
+    openhue set light Salon Cuisine --on --brightness "$b" --color white --transition-time 5s
+}
+
 ## Minecraft
 mcplayers() {
     local host="51.79.78.207"
