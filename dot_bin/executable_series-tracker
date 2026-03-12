@@ -6,6 +6,8 @@
 # Constants
 PROGRESS_FILE="$HOME/.config/series-tracker/progress.conf"
 SERIES_CONFIG="$HOME/.config/series-tracker/series.conf"
+POSITION_DIR="$HOME/.config/series-tracker/positions"
+WATCHDOG_SCRIPT="$HOME/.config/series-tracker/watchdog.lua"
 CONFIG_DIR="$(dirname "$PROGRESS_FILE")"
 
 # Series configuration (loaded from file)
@@ -245,12 +247,57 @@ reset_series() {
     save_progress
 }
 
-# Play episode with parole
+# Get position file path for a given video
+get_position_file() {
+    local filepath=$1
+    local hash=$(echo -n "$filepath" | md5sum | cut -d' ' -f1)
+    echo "${POSITION_DIR}/${hash}"
+}
+
+# Play episode with mpv (foreground, with watchdog)
+# Returns 0 if watched to end, 1 otherwise
 play_episode() {
     local filepath=$1
+    if [[ ! -f "$filepath" ]]; then
+        return 1
+    fi
 
-    if [[ -f "$filepath" ]]; then
-        parole "$filepath" &>/dev/null &
+    local flag_file="/tmp/st-watched-$$"
+    local pos_file=$(get_position_file "$filepath")
+    rm -f "$flag_file"
+    mkdir -p "$POSITION_DIR"
+
+    # Build mpv args
+    local mpv_args=(
+        --player-operation-mode=pseudo-gui
+        "--script=${WATCHDOG_SCRIPT}"
+    )
+
+    # Resume from saved position if available
+    if [[ -f "$pos_file" ]]; then
+        local saved_pos=$(cat "$pos_file")
+        mpv_args+=("--start=${saved_pos}")
+    fi
+
+    # Leave alt screen, restore terminal for mpv
+    echo -ne "\033[?25h\033[?1049l"
+    stty "$OLD_TTY_SETTINGS"
+
+    # Play
+    ST_FLAG_FILE="$flag_file" ST_POS_FILE="$pos_file" \
+        mpv "${mpv_args[@]}" "$filepath"
+
+    # Restore original terminal settings and return to alt screen
+    stty "$OLD_TTY_SETTINGS"
+    echo -ne "\033[?1049h\033[H\033[2J\033[?25l"
+
+    # Check if watched to end
+    if [[ -f "$flag_file" ]]; then
+        rm -f "$flag_file" "$pos_file"
+        return 0
+    else
+        rm -f "$flag_file"
+        return 1
     fi
 }
 
@@ -364,14 +411,16 @@ handle_input() {
             'q'|'Q')
                 return 1
                 ;;
-            'w'|'W')  # Watch current episode (resume/rewatch)
+            'w'|'W')  # Watch current episode (auto-advances if watched to end)
                 local series_id=$SELECTED
                 local season=${CURRENT_SEASON[$series_id]}
                 local episode=${CURRENT_EPISODE[$series_id]}
                 local episode_path=$(get_episode_path "$series_id" "$season" "$episode")
 
                 if [[ -n "$episode_path" && -f "$episode_path" ]]; then
-                    play_episode "$episode_path"
+                    if play_episode "$episode_path"; then
+                        mark_watched
+                    fi
                 fi
                 ;;
             'd'|'D')  # Mark current episode as done (advance to next)
@@ -386,7 +435,9 @@ handle_input() {
                 local episode_path=$(get_episode_path "$series_id" "$season" "$episode")
 
                 if [[ -n "$episode_path" && -f "$episode_path" ]]; then
-                    play_episode "$episode_path"
+                    if play_episode "$episode_path"; then
+                        mark_watched
+                    fi
                 fi
                 ;;
             'r'|'R')  # Reset series to beginning
@@ -406,14 +457,14 @@ main_loop() {
     init_progress
     load_progress
 
-    # Check if parole is available
-    if ! command -v parole &> /dev/null; then
-        echo "Error: parole video player not found. Please install it first."
+    # Check if mpv is available
+    if ! command -v mpv &> /dev/null; then
+        echo "Error: mpv video player not found. Please install it first."
         exit 1
     fi
 
-    # Save current terminal settings
-    local old_tty_settings=$(stty -g)
+    # Save current terminal settings (global for play_episode to restore)
+    OLD_TTY_SETTINGS=$(stty -g)
 
     # Switch to alternate screen buffer, clear, and hide cursor
     echo -ne "\033[?1049h\033[H\033[2J\033[?25l"
@@ -437,7 +488,7 @@ main_loop() {
     echo -ne "\033[?1049l"    # Restore main screen buffer
 
     # Restore terminal settings
-    stty "$old_tty_settings"
+    stty "$OLD_TTY_SETTINGS"
 }
 
 # Run the main loop

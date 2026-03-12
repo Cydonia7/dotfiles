@@ -8,7 +8,7 @@ Install with:
 
 Install the following packages:
 
-`yay -S --noconfirm lightdm i3-wm i3lock neovim neovim-symlinks lightdm-gtk-greeter chezmoi kitty eza starship keychain zoxide dunst inter-font file-roller ttf-jetbrains-mono feh polybar rofi numlockx picom tmux ttf-nerd-fonts-symbols brightnessctl maim evolution espanso-x11-bin vim-spell-fr snixembed safeeyes xprintidle brightness redshift jgmenu satty clipnotify git-delta`
+`yay -S --noconfirm lightdm i3-wm i3lock neovim neovim-symlinks lightdm-gtk-greeter chezmoi kitty eza starship keychain zoxide dunst inter-font file-roller ttf-jetbrains-mono feh polybar rofi numlockx picom tmux ttf-nerd-fonts-symbols brightnessctl maim evolution espanso-x11-bin vim-spell-fr snixembed safeeyes xprintidle brightness redshift jgmenu satty clipnotify git-delta mpv mpv-modernx`
 
 ## Add machine-specific configuration
 
