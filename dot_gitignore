@@ -3,4 +3,5 @@
 settings.local.json
 CLAUDE.local.md
 .phpactor.json
+.dbee.json
 

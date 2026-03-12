@@ -85,16 +85,37 @@ reload_caddy() {
   # Check if our specific Caddy instance is running (not the file-server one)
   if pgrep -f "caddy.*--config.*$CADDYFILE" >/dev/null || pgrep -f "caddy start.*--config.*$CADDYFILE" >/dev/null; then
     echo "Reloading Caddy configuration..."
-    sudo caddy reload --config "$CADDYFILE"
+    sudo -A caddy reload --config "$CADDYFILE"
   else
     echo "Starting Caddy..."
-    sudo caddy start --config "$CADDYFILE"
+    sudo -A caddy start --config "$CADDYFILE"
+  fi
+}
+
+start_caddy() {
+  if pgrep -f "caddy.*--config.*$CADDYFILE" >/dev/null || pgrep -f "caddy start.*--config.*$CADDYFILE" >/dev/null; then
+    echo "✗ Caddy is already running"
+    return 1
+  fi
+  echo "Starting Caddy..."
+  sudo -A caddy start --config "$CADDYFILE"
+  echo "✓ Caddy started"
+}
+
+stop_caddy() {
+  if pgrep -f "caddy.*--config.*$CADDYFILE" >/dev/null || pgrep -f "caddy start.*--config.*$CADDYFILE" >/dev/null; then
+    echo "Stopping Caddy..."
+    sudo -A caddy stop
+    echo "✓ Caddy stopped"
+  else
+    echo "✗ Caddy is not running"
+    return 1
   fi
 }
 
 validate_caddy() {
   echo "Validating Caddyfile syntax..."
-  if sudo caddy validate --config "$CADDYFILE" 2>&1; then
+  if sudo -A caddy validate --config "$CADDYFILE" 2>&1; then
     echo "✓ Configuration is valid"
   else
     echo "✗ Configuration has errors"
@@ -124,6 +145,12 @@ remove)
   fi
   reload_caddy
   ;;
+start)
+  start_caddy
+  ;;
+stop)
+  stop_caddy
+  ;;
 reload)
   reload_caddy
   ;;
@@ -141,6 +168,8 @@ validate)
 *)
   echo "Usage: $(basename $0) add <subdomain> <port>"
   echo "       $(basename $0) remove <subdomain or port>"
+  echo "       $(basename $0) start"
+  echo "       $(basename $0) stop"
   echo "       $(basename $0) reload"
   echo "       $(basename $0) status"
   echo "       $(basename $0) list"
@@ -149,6 +178,8 @@ validate)
   echo "Commands:"
   echo "  add      - Add a new subdomain configuration"
   echo "  remove   - Remove a subdomain by name or port"
+  echo "  start    - Start Caddy"
+  echo "  stop     - Stop Caddy"
   echo "  reload   - Reload Caddy configuration"
   echo "  status   - Check if Caddy is running and list active subdomains"
   echo "  list     - Show the raw Caddyfile configuration"

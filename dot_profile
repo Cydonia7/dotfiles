@@ -1,2 +1,4 @@
 export EDITOR=/usr/bin/nvim
 export PATH="$PATH:$HOME/.local/bin:$HOME/.bin"
+export SSH_ASKPASS=/usr/local/bin/sudo-askpass-zenity
+export SSH_ASKPASS_REQUIRE=prefer
