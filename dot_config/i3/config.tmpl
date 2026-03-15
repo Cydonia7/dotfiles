@@ -37,8 +37,7 @@ exec_always --no-startup-id killall safeeyes; safeeyes
 exec_always --no-startup-id sleep 10; killall go-clipboard-daemon; {{ .chezmoi.homeDir }}/.go/bin/go-clipboard-daemon
 #exec_always --no-startup-id killall timer; {{ .chezmoi.homeDir }}/Projects/cydo/timer/timer daemon
 #
-#bindsym $mod+t exec --no-startup-id {{ .chezmoi.homeDir }}/Projects/cydo/timer/timer start
-#bindsym $mod+Shift+t exec --no-startup-id {{ .chezmoi.homeDir }}/Projects/cydo/timer/timer cancel
+bindsym $mod+t exec kitty --title "Series Tracker" {{ .chezmoi.homeDir }}/.bin/series-tracker
 
 # Use pactl to adjust volume in PulseAudio.
 set $refresh_i3status killall -SIGUSR1 i3status

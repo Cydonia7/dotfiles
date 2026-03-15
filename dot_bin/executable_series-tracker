@@ -424,7 +424,7 @@ handle_input() {
             'q'|'Q')
                 return 1
                 ;;
-            'w'|'W')  # Watch current episode (auto-advances if watched to end)
+            'w'|'W'|' ')  # Watch current episode (auto-advances if watched to end)
                 local series_id=$SELECTED
                 local season=${CURRENT_SEASON[$series_id]}
                 local episode=${CURRENT_EPISODE[$series_id]}
