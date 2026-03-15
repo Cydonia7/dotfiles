@@ -283,9 +283,22 @@ play_episode() {
     echo -ne "\033[?25h\033[?1049l"
     stty "$OLD_TTY_SETTINGS"
 
+    # Hide the terminal window to scratchpad while mpv plays
+    local term_wid term_ws
+    term_wid=$(xdotool getactivewindow 2>/dev/null)
+    term_ws=$(i3-msg -t get_workspaces 2>/dev/null | python3 -c "import sys,json;print(next(w['name'] for w in json.load(sys.stdin) if w['focused']))" 2>/dev/null)
+    if [[ -n "$term_wid" ]]; then
+        i3-msg "[id=${term_wid}] move scratchpad" >/dev/null 2>&1
+    fi
+
     # Play
     ST_FLAG_FILE="$flag_file" ST_POS_FILE="$pos_file" \
         mpv "${mpv_args[@]}" "$filepath"
+
+    # Restore the terminal window
+    if [[ -n "$term_wid" ]]; then
+        i3-msg "[id=${term_wid}] scratchpad show; [id=${term_wid}] floating disable; [id=${term_wid}] move container to workspace ${term_ws}" >/dev/null 2>&1
+    fi
 
     # Restore original terminal settings and return to alt screen
     stty "$OLD_TTY_SETTINGS"
