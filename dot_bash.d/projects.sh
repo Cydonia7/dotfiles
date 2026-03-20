@@ -1,6 +1,23 @@
 # Localhost helper
 alias lh="bash $HOME/.bin/localhost"
 
+# Interactive project switcher sorted by last git commit
+zp() {
+  local selected
+  selected=$(/usr/bin/find ~/Projects -name .git -type d 2>/dev/null | while read -r d; do
+    dir=$(dirname "$d")
+    ts=$(git -C "$dir" log -1 --format=%ct 2>/dev/null || echo "0")
+    short=$(echo "$dir" | awk -F/ '{print $(NF-1)"/"$NF}')
+    printf "%s\t%s\n" "$ts" "$short"
+  done | sort -rn | cut -f2 | fzf --header="Projects (recent first)")
+
+  [[ -z "$selected" ]] && return
+
+  local full
+  full=$(/usr/bin/find ~/Projects -type d -path "*/$selected" | head -1)
+  [[ -n "$full" ]] && cd "$full"
+}
+
 ensure_gum() {
   # Vérifie/installe gum (réutilisable)
   if command -v gum &>/dev/null; then
